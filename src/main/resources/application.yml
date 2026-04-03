@@ -1,7 +1,0 @@
-spring:
-  application:
-    name: flowBoard
-
-  docker:
-    compose:
-      enabled: false
