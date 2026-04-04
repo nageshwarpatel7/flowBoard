@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Component
-@RequiredArgsConstructor
+@RequiredArgsConstructor  // Lombok generates the constructor — do NOT write one manually
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
@@ -26,30 +26,29 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain)
-        throws ServletException, IOException{
+            throws ServletException, IOException {
 
         String authHeader = request.getHeader("Authorization");
 
-        if(authHeader==null || !authHeader.startsWith("Bearer ")){
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token= authHeader.substring(7);
+        String token = authHeader.substring(7);
         String email;
 
-        try{
+        try {
             email = jwtUtil.extractEmail(token);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        if(email!=null && SecurityContextHolder.getContext().getAuthentication()==null){
+        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             Optional<User> optionalUser = userRepository.findByEmail(email);
 
-            if(optionalUser.isEmpty()){
+            if (optionalUser.isEmpty()) {
                 filterChain.doFilter(request, response);
                 return;
             }
@@ -58,9 +57,9 @@ public class JwtFilter extends OncePerRequestFilter {
 
             UsernamePasswordAuthenticationToken authToken =
                     new UsernamePasswordAuthenticationToken(
-                        user,
+                            user,
                             null,
-                        user.getAuthorities()
+                            user.getAuthorities()
                     );
 
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

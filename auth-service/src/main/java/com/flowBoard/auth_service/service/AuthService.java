@@ -15,6 +15,14 @@ public interface AuthService {
     String refreshToken(String token);
     void logout(String token);
 
+    //Email verification
+    void sendVerificationOtp(String email);
+    void verifyEmail(String email, String otp);
+
+    //Forgot password
+    void sendForgotPasswordOtp(String email);
+    void resetPassword(ResetPasswordRequest request);
+
     //Profile
     User getUserByEmail(String email);
     User getUserById(Long id);

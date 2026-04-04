@@ -5,6 +5,8 @@ import com.flowBoard.auth_service.entity.ROLE;
 import com.flowBoard.auth_service.entity.User;
 import com.flowBoard.auth_service.service.AuthService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
@@ -109,6 +111,30 @@ public class AuthController {
     public ResponseEntity<String> deleteUser(@PathVariable Long id){
         authService.deleteUser(id);
         return ResponseEntity.ok("User permanently deleted");
+    }
+
+    @PostMapping("/resend-verification")
+    public ResponseEntity<String> resendVerifiation(@RequestParam @Email @NotBlank String email){
+        authService.sendVerificationOtp(email);
+        return ResponseEntity.ok("Verification OTP send to "+email);
+    }
+
+    @PostMapping("/verify-email")
+    public ResponseEntity<String> verifyEmail(@Valid @RequestBody VerifyOtpRequest request){
+        authService.verifyEmail(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok("Email verified successfully. You can log in.");
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request){
+        authService.sendForgotPasswordOtp(request.getEmail());
+        return ResponseEntity.ok("Password reset OTP send to "+request.getEmail());
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request){
+        authService.resetPassword(request);
+        return ResponseEntity.ok("Password reset successfully. You can now log in.");
     }
 
     private UserProfileDto toProfileDto(User user){

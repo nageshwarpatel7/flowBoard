@@ -6,6 +6,7 @@ import com.flowBoard.auth_service.entity.User;
 import com.flowBoard.auth_service.exception.CustomException;
 import com.flowBoard.auth_service.repository.UserRepository;
 import com.flowBoard.auth_service.security.JwtUtil;
+import com.flowBoard.auth_service.security.OtpService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository repository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final OtpService otpService;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -44,8 +46,12 @@ public class AuthServiceImpl implements AuthService {
 
         repository.save(user);
 
-        String token = jwtUtil.generateToken(user.getEmail());
-        return new AuthResponse("User registered successfully", token);
+        otpService.sendVerificationOtp(request.getEmail());
+
+//        String token = jwtUtil.generateToken(user.getEmail());
+        return new AuthResponse("Registration successful. Please check your email for the verification OTP.",
+        null  // no JWT yet — user must verify email first
+        );
     }
 
     @Override
@@ -58,12 +64,74 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomException("Account is deactivated", HttpStatus.FORBIDDEN);
         }
 
+        if(!user.isEmailVerified()){
+            if(!otpService.hasActiveOtp(user.getEmail())){
+                otpService.sendVerificationOtp(user.getEmail());
+            }
+            throw new CustomException(
+                    "Email not verified. A new OTP has been sent to your email.",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new CustomException("Invalid password", HttpStatus.UNAUTHORIZED);
         }
 
         String token = jwtUtil.generateToken(user.getEmail());
         return new AuthResponse("Login successful", token);
+    }
+
+    @Override
+    public void sendVerificationOtp(String email){
+        User user = repository.findByEmail(email)
+                .orElseThrow(()-> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if(user.isEmailVerified()){
+            throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
+        }
+        otpService.sendVerificationOtp(email);
+    }
+
+    @Override
+    public void verifyEmail(String email, String otp){
+        User user = repository.findByEmail(email)
+                .orElseThrow(()-> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if(user.isEmailVerified()){
+            throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
+        }
+
+        otpService.verifyOtp(email, otp);
+
+        user.setEmailVerified(true);
+        repository.save(user);
+        log.info("Email verified for userId={}", user.getId());
+    }
+
+    @Override
+    public void sendForgotPasswordOtp(String email){
+        User user = repository.findByEmail(email)
+                .orElseThrow(()-> new CustomException("No account is found for this email", HttpStatus.NOT_FOUND));
+
+        if(!user.isActive()){
+            throw new CustomException("Account is deacivated", HttpStatus.FORBIDDEN);
+        }
+
+        otpService.sendForgotPasswordOtp(email);
+        log.info("Forgot password OTP send to {}", email);
+    }
+
+    @Override
+    public void resetPassword(ResetPasswordRequest request){
+        User user = repository.findByEmail(request.getEmail())
+                .orElseThrow(()-> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        otpService.verifyOtp(request.getEmail(), request.getOtp());
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        repository.save(user);
+        log.info("Password reset successfully for userId={}", user.getId());
     }
 
     @Override
