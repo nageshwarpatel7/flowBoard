@@ -14,11 +14,11 @@ public class JwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    private Key getKey(){
+    private Key getKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public Claims extractAllClaims(String token){
+    public Claims extractAllClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(getKey())
                 .build()
@@ -26,22 +26,26 @@ public class JwtUtil {
                 .getBody();
     }
 
-    public boolean isTokenValid(String token){
-        try{
+    public boolean isTokenValid(String token) {
+        try {
             extractAllClaims(token);
             return true;
-        }
-        catch(Exception e){
+        } catch (Exception e) {
             return false;
         }
     }
 
-    public String extractEmail(String token){
+    public String extractEmail(String token) {
         return extractAllClaims(token).getSubject();
     }
 
-    public String extractSubject(String token){
-        return extractAllClaims(token).getSubject();
+    // Reads userId embedded by auth-service during token generation
+    public Long extractUserId(String token) {
+        Claims claims = extractAllClaims(token);
+        Object userId = claims.get("userId");
+        if (userId instanceof Integer) {
+            return ((Integer) userId).longValue();
+        }
+        return (Long) userId;
     }
-
 }
