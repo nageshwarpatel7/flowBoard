@@ -21,7 +21,7 @@ public class WorkspaceController {
     @PostMapping
     public ResponseEntity<WorkspaceResponse> create(
             @Valid @RequestBody CreateWorkspaceRequest request,
-            @RequestHeader("X-User-Id") Long userId
+            @RequestHeader("X-User-Email") Long userId
             ){
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(workspaceService.createWorkspace(request, userId));
@@ -30,7 +30,7 @@ public class WorkspaceController {
     @GetMapping("/{id}")
     public ResponseEntity<WorkspaceResponse> getById(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long userId){
+            @RequestHeader("X-User-Email") Long userId){
         return ResponseEntity.ok(workspaceService.getById(id, userId));
     }
 
@@ -55,14 +55,14 @@ public class WorkspaceController {
     public ResponseEntity<WorkspaceResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateWorkspaceRequest request,
-            @RequestHeader("X-User-Id") Long userId){
+            @RequestHeader("X-User-Email") Long userId){
         return ResponseEntity.ok(workspaceService.updateWorkspace(id, request, userId));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(
             @PathVariable Long id,
-            @RequestHeader("X-User-Id") Long userId){
+            @RequestHeader("X-User-Email") Long userId){
         workspaceService.deleteWorkspace(id, userId);
         return ResponseEntity.ok("Workspace deleted successfully");
     }
@@ -71,7 +71,7 @@ public class WorkspaceController {
     public ResponseEntity<WorkspaceMember> addMember(
             @PathVariable Long id,
             @Valid @RequestBody AddMemberRequest request,
-            @RequestHeader("X-User-Id") Long userId){
+            @RequestHeader("X-User-Email") Long userId){
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(workspaceService.addMember(id,request, userId));
     }
@@ -80,7 +80,7 @@ public class WorkspaceController {
     public ResponseEntity<String> removeMember(
             @PathVariable Long id,
             @PathVariable Long memberId,
-            @RequestHeader("X-User-Id") Long userId){
+            @RequestHeader("X-User-Email") Long userId){
         workspaceService.removeMember(id, memberId, userId);
         return ResponseEntity.ok("Member removed successfully");
     }
@@ -90,7 +90,7 @@ public class WorkspaceController {
             @PathVariable Long id,
             @PathVariable Long memberId,
             @Valid @RequestBody UpdateMemberRoleRequest request,
-            @RequestHeader("X-User-Id") Long userId){
+            @RequestHeader("X-User-Email") Long userId){
         workspaceService.updateMemberRole(id, memberId, request, userId);
         return ResponseEntity.ok("Member role updated successfully");
     }
