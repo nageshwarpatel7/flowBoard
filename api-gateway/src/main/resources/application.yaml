@@ -34,6 +34,15 @@ spring:
               args:
                 excludedPaths: /api/v1/workspaces/public
 
+        - id: board-service
+          uri: lb://BOARD-SERVICE
+          predicates:
+            - Path=/api/v1/boards/**
+          filters:
+            - name: AuthFilter
+              args:
+                excludedPaths: /api/v1/boards/public
+
       globalcors:
         cors-configurations:
           '[/**]':
