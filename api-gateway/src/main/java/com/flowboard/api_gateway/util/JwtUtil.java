@@ -46,6 +46,13 @@ public class JwtUtil {
         if (userId instanceof Integer) {
             return ((Integer) userId).longValue();
         }
-        return (Long) userId;
+        if(userId instanceof Long) return (Long) userId;
+
+        throw new RuntimeException("userId claim missing from token");
+    }
+
+    public String extraxctRole(String token){
+        Object role = extractAllClaims(token).get("role");
+        return role != null? role.toString(): "MEMBER";
     }
 }

@@ -9,6 +9,7 @@ spring:
     gateway:
       routes:
 
+        # ── Auth Service ──────────────────────────────────────────────
         - id: auth-service
           uri: lb://AUTH-SERVICE
           predicates:
@@ -23,8 +24,10 @@ spring:
                   /api/v1/auth/validate,
                   /api/v1/auth/verify-email,
                   /api/v1/auth/resend-verification,
+                  /api/v1/auth/forgot-password,
                   /api/v1/auth/reset-password
 
+        # ── Workspace Service ─────────────────────────────────────────
         - id: workspace-service
           uri: lb://WORKSPACE-SERVICE
           predicates:
@@ -34,6 +37,7 @@ spring:
               args:
                 excludedPaths: /api/v1/workspaces/public
 
+        # ── Board Service ─────────────────────────────────────────────
         - id: board-service
           uri: lb://BOARD-SERVICE
           predicates:
@@ -59,3 +63,8 @@ eureka:
 
 jwt:
   secret: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    com.flowBoard: DEBUG

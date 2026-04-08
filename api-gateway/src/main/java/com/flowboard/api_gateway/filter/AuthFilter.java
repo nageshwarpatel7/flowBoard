@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Component;
@@ -33,35 +34,46 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
             ServerHttpRequest request = exchange.getRequest();
             String path = request.getURI().getPath();
 
+            //--- skip JWT check for public routes -----
             if (isExcluded(path, config.getExcludedPaths())) {
+                log.debug("Public routes - skipping JWT: {}", path);
                 return chain.filter(exchange);
             }
 
+            //--- check Authorization header exists ---
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                return onError(exchange, "Authorization header is missing", HttpStatus.UNAUTHORIZED);
+                log.warn("No Authorization header - blocking request to: {}", path);
+                return reject(exchange, "Authorization header is missing", HttpStatus.UNAUTHORIZED);
             }
 
             String authHeader = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return onError(exchange, "Invalid Authorization header format", HttpStatus.UNAUTHORIZED);
+                return reject(exchange, "Invalid Authorization header format", HttpStatus.UNAUTHORIZED);
             }
 
+            // ---- validate the JWT -----
             String token = authHeader.substring(7);
 
             if (!jwtUtil.isTokenValid(token)) {
-                return onError(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
+                log.warn("Invalid or expired JWT - blocking request to: {}", path);
+                return reject(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
             }
 
+            // ---- extract claims and forward as headers ----
             String email = jwtUtil.extractEmail(token);
             Long userId = jwtUtil.extractUserId(token);
+            String role = jwtUtil.extraxctRole(token);
 
-            // Forward BOTH headers so downstream services can use whichever they need
-            // X-User-Email: nageshwar@gmail.com
-            // X-User-Id: 1
+            log.debug("JWT valid -> email={} userId={} role={} path={}",
+                    email, userId, role, path);
+
+
             ServerHttpRequest mutatedRequest = request.mutate()
                     .header("X-User-Email", email)
                     .header("X-User-Id", String.valueOf(userId))
+                    .header("X-User-Role", role)
+                    .headers(h->h.remove(HttpHeaders.AUTHORIZATION))
                     .build();
 
             log.debug("JWT valid — email={} userId={} path={}", email, userId, path);
@@ -76,10 +88,10 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
         return excluded.stream().anyMatch(path::equals);
     }
 
-    private Mono<Void> onError(ServerWebExchange exchange, String message, HttpStatus status) {
+    private Mono<Void> reject(ServerWebExchange exchange, String message, HttpStatus status) {
         ServerHttpResponse response = exchange.getResponse();
         response.setStatusCode(status);
-        response.getHeaders().add("Content-Type", "application/json");
+        response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
         String body = """
                 {"status":%d,"error":"%s","message":"%s"}
                 """.formatted(status.value(), status.getReasonPhrase(), message);

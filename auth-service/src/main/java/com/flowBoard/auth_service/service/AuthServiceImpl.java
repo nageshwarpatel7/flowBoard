@@ -78,7 +78,7 @@ public class AuthServiceImpl implements AuthService {
             throw new CustomException("Invalid password", HttpStatus.UNAUTHORIZED);
         }
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getId());
+        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole().name());
         return new AuthResponse("Login successful", token);
     }
 
@@ -157,7 +157,7 @@ public class AuthServiceImpl implements AuthService {
             if (!user.isActive()) {
                 throw new CustomException("Account is deactivated", HttpStatus.FORBIDDEN);
             }
-            return jwtUtil.generateToken(email, user.getId());
+            return jwtUtil.generateToken(email, user.getId(), user.getRole().name());
         } catch (CustomException e) {
             throw e;
         } catch (Exception e) {

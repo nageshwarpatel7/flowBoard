@@ -24,10 +24,12 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    // Updated — now embeds userId as a claim so gateway can forward it
-    public String generateToken(String email, Long userId) {
+    // embeds userId and role that so gateway can forward it
+    // without calling auth-service on every request
+    public String generateToken(String email, Long userId, String role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);  // embedded in JWT payload
+        claims.put("role", role);
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -52,8 +54,9 @@ public class JwtUtil {
 
     // Extract userId embedded in token claims
     public Long extractUserId(String token) {
-        Claims claims = extractAllClaims(token);
-        return claims.get("userId", Long.class);
+        Object id = extractAllClaims(token).get("userId");
+        if(id instanceof Integer) return ((Integer) id).longValue();
+        return (Long) id;
     }
 
     public boolean isTokenValid(String token) {
