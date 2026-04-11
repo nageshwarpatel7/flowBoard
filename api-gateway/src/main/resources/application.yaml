@@ -47,6 +47,15 @@ spring:
               args:
                 excludedPaths: /api/v1/boards/public
 
+        - id: list-service
+          uri: lb://LIST-SERVICE
+          predicates:
+            - Path=/api/v1/lists/**
+          filters:
+            - name: AuthFilter
+              args:
+                excludedPaths: ""
+
       globalcors:
         cors-configurations:
           '[/**]':
