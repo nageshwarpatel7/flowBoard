@@ -56,6 +56,15 @@ spring:
               args:
                 excludedPaths: ""
 
+        - id: card-service
+          uri: lb://CARD-SERVICE
+          predicates:
+            - Path=/api/v1/cards/**
+          filters:
+            - name: AuthFilter
+              args:
+                excludedPaths: ""
+
       globalcors:
         cors-configurations:
           '[/**]':
