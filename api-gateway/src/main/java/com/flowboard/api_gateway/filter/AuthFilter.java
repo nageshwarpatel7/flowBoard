@@ -32,9 +32,15 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
             ServerHttpRequest request = exchange.getRequest();
+
+            // --- 1. ALLOW PRE-FLIGHT OPTIONS REQUESTS ---
+            if (request.getMethod().name().equals("OPTIONS")) {
+                return chain.filter(exchange);
+            }
+
             String path = request.getURI().getPath();
 
-            //--- skip JWT check for public routes -----
+            // --- 2. Skip JWT check for public routes ---
             if (isExcluded(path, config.getExcludedPaths())) {
                 log.debug("Public routes - skipping JWT: {}", path);
                 return chain.filter(exchange);
