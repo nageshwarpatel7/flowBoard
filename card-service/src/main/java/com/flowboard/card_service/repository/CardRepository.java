@@ -57,6 +57,9 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     // Count cards in a board
     long countByBoardIdAndIsArchivedFalse(Long boardId);
 
+    List<Card> findByDueDateAndIsArchivedFalseAndStatusNot(
+            LocalDate dueDate, CardStatus status);
+
     // Max position in a list — to append new card at end
     @Query("SELECT MAX(c.position) FROM Card c " +
             "WHERE c.listId = :listId AND c.isArchived = false")
