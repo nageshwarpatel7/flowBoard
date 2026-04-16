@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -49,6 +51,36 @@ public class NotificationController {
         notificationService.notifyAssignment(
                 recipientId, actorId, cardId, cardTitle, recipientEmail);
         return ResponseEntity.ok("Assignment notification sent");
+    }
+
+    @PostMapping("/notify/due-date-body")
+    public ResponseEntity<String> notifyDueDateBody(
+            @RequestBody Map<String, Object> req){
+        Long recipientId = Long.valueOf(req.get("recipientId").toString());
+        Long cardId = Long.valueOf(req.get("cardId").toString());
+        String cardTitle = req.get("cardTitle").toString();
+        String timeLeft = req.get("timeLeft").toString();
+
+        notificationService.notifyDueDateApproaching(
+                recipientId, cardId, cardTitle, timeLeft);
+
+        return ResponseEntity.ok("Due date notification sent");
+    }
+
+    @PostMapping("/notify/overdue-body")
+    public ResponseEntity<String> notifyOverdueBody(
+            @RequestBody Map<String, Object> req){
+        Long recipientId = Long.valueOf(req.get("recipientId").toString());
+        Long cardId = Long.valueOf(req.get("cardId").toString());
+        String cardTitle = req.get("cardTitle").toString();
+        String dueDate = req.get("dueDate").toString();
+        String email = req.containsKey("recipientEmail") && req.get("recipientEmail")!=null
+                ? req.get("recipientEmail").toString() : null;
+
+        notificationService.notifyOverdue(
+                recipientId, cardId, cardTitle, dueDate, email);
+
+        return ResponseEntity.ok("Overdue notification sent");
     }
 
     @PostMapping("/notify/mention")
