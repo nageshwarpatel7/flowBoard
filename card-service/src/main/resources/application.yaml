@@ -14,7 +14,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
 
 eureka:
@@ -23,3 +23,9 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
+
+# Due date reminder windows
+due-date:
+  reminder:
+    hours-before: 24     # notify 24 hours before due
+    urgent-hours: 2      # notify again 2 hours before due

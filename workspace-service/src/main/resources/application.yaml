@@ -1,29 +1,18 @@
 server:
   port: 8082
-
 spring:
   application:
     name: workspace-service
-
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_workspace
     username: root
     password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
-
-jwt:
-  secret: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
-
-# URL of auth-service for token validation
-auth-service:
-  url: http://localhost:8081
-
 eureka:
   client:
     service-url:

@@ -2,38 +2,43 @@ server:
   port: 8081
 
 spring:
-
   application:
     name: auth-service
 
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_auth
-    username: root
-    password: 1234
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
 
-  # Gmail SMTP configuration
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${GMAIL_USERNAME:none}    # Fixed structure + added fallback
-    password: ${GMAIL_PASSWORD:none}    # Fixed structure + added fallback
+    username: ${GMAIL_USERNAME}
+    password: ${GMAIL_PASSWORD}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
-            required: true
-          connectiontimeout: 5000
-          timeout: 5000
-          writetimeout: 5000
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope:
+              - email
+              - profile
 
 jwt:
   secret: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
@@ -41,12 +46,6 @@ jwt:
 
 otp:
   expiry-minutes: 10
-
-logging:
-  level:
-    org.springframework.mail: DEBUG
-    com.sun.mail: DEBUG
-    com.flowBoard: INFO
 
 eureka:
   client:
