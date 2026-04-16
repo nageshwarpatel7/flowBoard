@@ -1,15 +1,11 @@
 package com.flowBoard.auth_service.security;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.flowBoard.auth_service.dto.AuthResponse;
 import com.flowBoard.auth_service.entity.User;
 import com.flowBoard.auth_service.repository.UserRepository;
-import com.flowBoard.auth_service.service.AuthService;
-import com.flowBoard.auth_service.service.OAuthUserService;
-import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
@@ -19,27 +15,32 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class OAuth2SucceessHandler implements AuthenticationSuccessHandler {
+
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
-    private final ObjectMapper objectMapper;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request,
                                         HttpServletResponse response,
-                                        Authentication authentication) throws IOException{
+                                        Authentication authentication) throws IOException {
+
         OAuth2User oAuth2User = (OAuth2User) authentication.getPrincipal();
         String email = oAuth2User.getAttribute("email");
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(()->new RuntimeException("OAuth user not found after login: "+email));
+                .orElseThrow(() -> new RuntimeException(
+                        "OAuth user not found after login: " + email));
 
-        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole().name());
+        String token = jwtUtil.generateToken(
+                user.getEmail(), user.getId(), user.getRole().name());
 
-        AuthResponse authResponse = new AuthResponse("OAuth2 login successful", token);
+        log.info("OAuth2 login success: email={} userId={}", email, user.getId());
+        String frontendUrl = "http://localhost:4200/oauth2/callback?token=" + token
+                + "&userId=" + user.getId()
+                + "&role=" + user.getRole().name();
 
-        response.setContentType("application/json");
-        response.setStatus(HttpServletResponse.SC_OK);
-        objectMapper.writeValue(response.getWriter(), authResponse);
+        response.sendRedirect(frontendUrl);
     }
 }
