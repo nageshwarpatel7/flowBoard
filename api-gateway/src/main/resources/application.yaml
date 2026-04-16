@@ -29,6 +29,12 @@ spring:
                   /api/v1/auth/forgot-password,
                   /api/v1/auth/reset-password
 
+        # OAuth2 — pass directly to auth-service, NO AuthFilter
+        - id: oauth2-login
+          uri: lb://AUTH-SERVICE
+          predicates:
+            - Path=/oauth2/**,/login/oauth2/**
+
         # ── Workspace Service ─────────────────────────────────────────
         - id: workspace-service
           uri: lb://WORKSPACE-SERVICE
