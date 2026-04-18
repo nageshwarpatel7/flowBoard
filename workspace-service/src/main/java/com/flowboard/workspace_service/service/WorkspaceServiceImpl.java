@@ -1,22 +1,28 @@
 package com.flowboard.workspace_service.service;
 
+import com.flowboard.workspace_service.config.RabbitMQConfig;
 import com.flowboard.workspace_service.dto.*;
 import com.flowboard.workspace_service.entity.Workspace;
+import com.flowboard.workspace_service.entity.WorkspaceInvitation;
 import com.flowboard.workspace_service.entity.WorkspaceMember;
 import com.flowboard.workspace_service.enums.MemberRole;
 import com.flowboard.workspace_service.enums.Visibility;
+import com.flowboard.workspace_service.event.WorkspaceInviteEvent;
 import com.flowboard.workspace_service.exception.CustomException;
+import com.flowboard.workspace_service.repository.WorkspaceInvitationRepository;
 import com.flowboard.workspace_service.repository.WorkspaceMemberRepository;
 import com.flowboard.workspace_service.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.jdbc.Work;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +31,10 @@ public class WorkspaceServiceImpl implements WorkspaceService{
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository memberRepository;
+    private final WorkspaceInvitationRepository invitationRepository;
+
+    private final RabbitTemplate rabbitTemplate;
+
 
     @Override
     @Transactional
@@ -60,6 +70,148 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     }
 
     @Override
+    @Transactional
+    public void inviteMember(Long workspaceId,
+                             InviteMemberRequest request,
+                             Long invitedBy) {
+
+        Workspace workspace = findWorkspace(workspaceId);
+        requireAdmin(workspaceId, invitedBy);
+
+        // Prevent duplicate pending invitations
+        if (invitationRepository.existsByWorkspaceIdAndInviteeEmailAndStatus(
+                workspaceId, request.getEmail(), "PENDING")) {
+            throw new CustomException(
+                    "A pending invitation already exists for this email",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        // Prevent inviting existing members
+        // Note: we check by email match in invitation only
+        // (actual userId lookup would need Feign to auth-service)
+
+        String token = UUID.randomUUID().toString();
+        String acceptUrl = "http://localhost:4200/invite/accept?token=" + token;
+
+        WorkspaceInvitation invitation = WorkspaceInvitation.builder()
+                .workspaceId(workspaceId)
+                .invitedBy(invitedBy)
+                .inviteeEmail(request.getEmail())
+                .role(request.getRole())
+                .token(token)
+                .status("PENDING")
+                .createdAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .build();
+
+        invitationRepository.save(invitation);
+
+        // Publish to RabbitMQ → notification-service (or workspace) listens
+        // and sends the invitation email
+        WorkspaceInviteEvent event = new WorkspaceInviteEvent(
+                workspaceId,
+                workspace.getName(),
+                request.getEmail(),
+                token,
+                request.getRole().name(),
+                invitedBy,
+                acceptUrl
+        );
+
+        rabbitTemplate.convertAndSend(
+                RabbitMQConfig.FLOWBOARD_EXCHANGE,
+                RabbitMQConfig.INVITE_KEY,
+                event
+        );
+
+        log.info("Invitation sent: workspaceId={} email={} role={}",
+                workspaceId, request.getEmail(), request.getRole());
+    }
+
+    @Override
+    @Transactional
+    public void acceptInvitation(String token, Long userId) {
+        WorkspaceInvitation inv = invitationRepository.findByToken(token)
+                .orElseThrow(() -> new CustomException(
+                        "Invalid invitation token", HttpStatus.NOT_FOUND));
+
+        if (!"PENDING".equals(inv.getStatus())) {
+            throw new CustomException(
+                    "This invitation is no longer valid", HttpStatus.BAD_REQUEST);
+        }
+
+        if (LocalDateTime.now().isAfter(inv.getExpiresAt())) {
+            inv.setStatus("EXPIRED");
+            invitationRepository.save(inv);
+            throw new CustomException(
+                    "Invitation has expired. Please request a new one.",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        // Check if already a member
+        if (memberRepository.existsByWorkspaceIdAndUserId(
+                inv.getWorkspaceId(), userId)) {
+            inv.setStatus("ACCEPTED");
+            inv.setAcceptedAt(LocalDateTime.now());
+            invitationRepository.save(inv);
+            return; // already member, silently succeed
+        }
+
+        Workspace workspace = findWorkspace(inv.getWorkspaceId());
+
+        WorkspaceMember member = WorkspaceMember.builder()
+                .workspace(workspace)
+                .userId(userId)
+                .role(inv.getRole())
+                .joinedAt(LocalDateTime.now())
+                .build();
+
+        memberRepository.save(member);
+
+        inv.setStatus("ACCEPTED");
+        inv.setAcceptedAt(LocalDateTime.now());
+        invitationRepository.save(inv);
+
+        log.info("Invitation accepted: userId={} workspaceId={} role={}",
+                userId, inv.getWorkspaceId(), inv.getRole());
+    }
+
+    @Override
+    @Transactional
+    public void revokeInvitation(Long workspaceId, Long invitationId,
+                                 Long requesterId) {
+        requireAdmin(workspaceId, requesterId);
+
+        WorkspaceInvitation inv = invitationRepository.findById(invitationId)
+                .orElseThrow(() -> new CustomException(
+                        "Invitation not found", HttpStatus.NOT_FOUND));
+
+        if (!inv.getWorkspaceId().equals(workspaceId)) {
+            throw new CustomException(
+                    "Invitation does not belong to this workspace",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        if (!"PENDING".equals(inv.getStatus())) {
+            throw new CustomException(
+                    "Only pending invitations can be revoked",
+                    HttpStatus.BAD_REQUEST);
+        }
+
+        inv.setStatus("REVOKED");
+        invitationRepository.save(inv);
+        log.info("Invitation revoked: id={} by userId={}", invitationId, requesterId);
+    }
+
+    @Override
+    public List<WorkspaceInvitation> getPendingInvitations(Long workspaceId,
+                                                           Long requesterId) {
+        requireAdmin(workspaceId, requesterId);
+        return invitationRepository.findByWorkspaceIdAndStatus(
+                workspaceId, "PENDING");
+    }
+
+    @Override
     public WorkspaceResponse getById(Long workspaceId, Long requesterId){
         Workspace workspace = findWorkspace(workspaceId);
 
@@ -91,17 +243,21 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     @Transactional
     public WorkspaceResponse updateWorkspace(Long workspaceId,
                                              UpdateWorkspaceRequest request,
-                                             Long requesterId){
+                                             Long requesterId) {
         Workspace workspace = findWorkspace(workspaceId);
         requireAdmin(workspaceId, requesterId);
 
         workspace.setName(request.getName());
         workspace.setDescription(request.getDescription());
-        if(request.getVisibility()!=null){
+
+        if (request.getVisibility() != null) {
+            workspace.setVisibility(request.getVisibility());
+        }
+        if (request.getLogoUrl() != null) {
             workspace.setLogoUrl(request.getLogoUrl());
         }
-        workspace.setUpdatedAt(LocalDateTime.now());
 
+        workspace.setUpdatedAt(LocalDateTime.now());
         workspaceRepository.save(workspace);
 
         log.info("Workspace updated: id={}", workspaceId);

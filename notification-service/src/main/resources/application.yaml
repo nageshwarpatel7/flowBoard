@@ -14,8 +14,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
 
   mail:
     host: smtp.gmail.com
@@ -40,6 +46,12 @@ eureka:
   instance:
     prefer-ip-address: true
 
-logging:
-  level:
-    com.flowBoard: DEBUG
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+  show-actuator: false

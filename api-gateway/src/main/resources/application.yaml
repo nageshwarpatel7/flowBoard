@@ -5,11 +5,16 @@ spring:
   application:
     name: api-gateway
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:flowboard_redis_secret}
+
   cloud:
     gateway:
       routes:
 
-        # ── Auth Service ──────────────────────────────────────────────
         - id: auth-service
           uri: lb://AUTH-SERVICE
           predicates:
@@ -20,8 +25,6 @@ spring:
                 excludedPaths: >
                   /api/v1/auth/register,
                   /api/v1/auth/login,
-                  /api/v1/auth/profile,
-                  /api/v1/auth/logout,
                   /api/v1/auth/refresh,
                   /api/v1/auth/validate,
                   /api/v1/auth/verify-email,
@@ -29,13 +32,16 @@ spring:
                   /api/v1/auth/forgot-password,
                   /api/v1/auth/reset-password
 
-        # OAuth2 — pass directly to auth-service, NO AuthFilter
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@authRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
+
         - id: oauth2-login
           uri: lb://AUTH-SERVICE
           predicates:
             - Path=/oauth2/**,/login/oauth2/**
 
-        # ── Workspace Service ─────────────────────────────────────────
         - id: workspace-service
           uri: lb://WORKSPACE-SERVICE
           predicates:
@@ -44,8 +50,11 @@ spring:
             - name: AuthFilter
               args:
                 excludedPaths: /api/v1/workspaces/public
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@defaultRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
-        # ── Board Service ─────────────────────────────────────────────
         - id: board-service
           uri: lb://BOARD-SERVICE
           predicates:
@@ -54,6 +63,10 @@ spring:
             - name: AuthFilter
               args:
                 excludedPaths: /api/v1/boards/public
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@defaultRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         - id: list-service
           uri: lb://LIST-SERVICE
@@ -63,6 +76,10 @@ spring:
             - name: AuthFilter
               args:
                 excludedPaths: ""
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@defaultRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         - id: card-service
           uri: lb://CARD-SERVICE
@@ -72,6 +89,10 @@ spring:
             - name: AuthFilter
               args:
                 excludedPaths: ""
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@defaultRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
         - id: notification-service
           uri: lb://NOTIFICATION-SERVICE
@@ -81,9 +102,13 @@ spring:
             - name: AuthFilter
               args:
                 excludedPaths: ""
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter: "#{@defaultRateLimiter}"
+                key-resolver: "#{@userKeyResolver}"
 
       globalcors:
-        add-to-simple-url-handler-mapping: true # Ensures CORS is handled for all routes
+        add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
             allowedOrigins: "http://localhost:4200"
@@ -105,7 +130,7 @@ eureka:
     prefer-ip-address: true
 
 jwt:
-  secret: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
+  secret: ${JWT_SECRET:qwertyuiopdfasdfghjkklzxcvbnmqwertyuil}
 
 logging:
   level:

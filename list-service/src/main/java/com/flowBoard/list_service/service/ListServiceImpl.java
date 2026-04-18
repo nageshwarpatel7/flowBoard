@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 public class ListServiceImpl implements ListService{
 
-    public final ListRepository listRepository;
+    private final ListRepository listRepository;
 
     @Override
     @Transactional

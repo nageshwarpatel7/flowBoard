@@ -68,17 +68,18 @@ public class EmailNotificationService {
 
     private String buildEmailBody(String title, String message, String deepLinkUrl){
 
-        String linkHtml = (deepLinkUrl !=null && !deepLinkUrl.isBlank())
+        String linkHtml = (deepLinkUrl != null && !deepLinkUrl.isBlank())
                 ? """
-                <div style = "margin:24px 0;text-align:center;">
-                    <a href="http://localhost:8080%s
-                       style="background:#4f46e5;color:#fff;padding:12px 28px;
-                              border-radius:6px;text-decoration:none;
-                              font-weight:500;font-size:14px;">
-                       View in FlowBoard
-                    </a>
-                </div>
-                """.formatted(deepLinkUrl) :"";
+      <div style="margin:24px 0;text-align:center;">
+        <a href="http://localhost:8080%s"
+           style="background:#4f46e5;color:#fff;padding:12px 28px;
+                  border-radius:6px;text-decoration:none;
+                  font-weight:500;font-size:14px;">
+          View in FlowBoard
+        </a>
+      </div>
+      """.formatted(deepLinkUrl)
+                : "";
 
         return """
                 <div style="font-family:Arial,sans-serif;max-width:520px;

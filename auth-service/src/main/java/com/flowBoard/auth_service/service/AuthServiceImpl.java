@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 
 @Service
@@ -25,6 +26,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final OtpService otpService;
+    private final TokenBlacklistService blacklistService;
 
     @Override
     public AuthResponse register(RegisterRequest request) {
@@ -206,7 +208,17 @@ public class AuthServiceImpl implements AuthService {
     // To fully implement: store token in a Redis blacklist with TTL = token expiry.
     @Override
     public void logout(String token) {
-        log.info("User logged out. Token invalidation requires a Redis blacklist for full security.");
+
+        try{
+            Date expiry = jwtUtil.extractAllClaims(token).getExpiration();
+            long ttlSeconds = (expiry.getTime() - System.currentTimeMillis())/1000;
+            if(ttlSeconds>0) {
+                blacklistService.blacklist(token, ttlSeconds);
+            }
+        }catch (Exception e){
+            log.warn("Could not blacklist token during: {}", e.getMessage());
+        }
+        log.info("User logged out successfully");
     }
 
     @Override

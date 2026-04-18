@@ -25,7 +25,7 @@ public class DueDateScheduler {
 
     @Scheduled(cron = "0 0 8 * * *")
     public void notifyDueTomorrow(){
-        LocalDate tomorrow = LocalDate.now().plusDays(10);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
 
         List<Card> cards = cardRepository.findByDueDateAndIsArchivedFalseAndStatusNot(
                 tomorrow, CardStatus.DONE

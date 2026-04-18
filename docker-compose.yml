@@ -1,0 +1,202 @@
+version: '3.9'
+
+services:
+
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+
+  mysql:
+    image: mysql:8.2
+    container_name: flowboard-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "1234"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-p1234"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: flowboard-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass flowboard_redis_secret
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD","redis-cli","-a","flowboard_redis_secret","ping"]
+      interval: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: flowboard-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: flowboard
+      RABBITMQ_DEFAULT_PASS: flowboard_secret
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD","rabbitmq-diagnostics","ping"]
+      interval: 10s
+      retries: 15
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: flowboard-sonar
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    volumes:
+      - sonar_data:/opt/sonarqube/data
+      - sonar_logs:/opt/sonarqube/logs
+
+  # ── FlowBoard services ──────────────────────────────────────────────────────
+
+  eureka-server:
+    build: ./eureka-server
+    container_name: eureka-server
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD","wget","-q","--spider","http://localhost:8761/actuator/health"]
+      interval: 15s
+      retries: 10
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_auth
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: flowboard_redis_secret
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
+      GMAIL_USERNAME: nageshwarpatel660@gmail.com
+      GMAIL_PASSWORD: tvrjwsrefyidtdns
+    depends_on:
+      mysql: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      eureka-server: {condition: service_healthy}
+
+  workspace-service:
+    build: ./workspace-service
+    container_name: workspace-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_workspace
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: flowboard
+      SPRING_RABBITMQ_PASSWORD: flowboard_secret
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      eureka-server: {condition: service_healthy}
+
+  board-service:
+    build: ./board-service
+    container_name: board-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_board
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql: {condition: service_healthy}
+      eureka-server: {condition: service_healthy}
+
+  list-service:
+    build: ./list-service
+    container_name: list-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_list
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql: {condition: service_healthy}
+      eureka-server: {condition: service_healthy}
+
+  card-service:
+    build: ./card-service
+    container_name: card-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_card
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: flowboard
+      SPRING_RABBITMQ_PASSWORD: flowboard_secret
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      eureka-server: {condition: service_healthy}
+
+  notification-service:
+    build: ./notification-service
+    container_name: notification-service
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_notification
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_PORT: 5672
+      SPRING_RABBITMQ_USERNAME: flowboard
+      SPRING_RABBITMQ_PASSWORD: flowboard_secret
+      MAIL_USERNAME: nageshwarpatel660@gmail.com
+      MAIL_PASSWORD: tvrjwsrefyidtdns
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+    depends_on:
+      mysql: {condition: service_healthy}
+      rabbitmq: {condition: service_healthy}
+      eureka-server: {condition: service_healthy}
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      JWT_SECRET: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
+    depends_on:
+      eureka-server: {condition: service_healthy}
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+  sonar_data:
+  sonar_logs:

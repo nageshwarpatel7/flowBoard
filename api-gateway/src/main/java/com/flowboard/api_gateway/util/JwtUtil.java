@@ -51,7 +51,7 @@ public class JwtUtil {
         throw new RuntimeException("userId claim missing from token");
     }
 
-    public String extraxctRole(String token){
+    public String extractRole(String token){
         Object role = extractAllClaims(token).get("role");
         return role != null? role.toString(): "MEMBER";
     }

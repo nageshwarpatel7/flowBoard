@@ -64,7 +64,7 @@ public class CardController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateCardRequest request,
             @RequestHeader(value = "X-User-Id", required = false) Long userId){
-        return ResponseEntity.ok(cardService.updateCard(id, request, resolveUserId(id)));
+        return ResponseEntity.ok(cardService.updateCard(id, request, resolveUserId(userId)));
     }
 
     @DeleteMapping("/{id}")
@@ -120,7 +120,7 @@ public class CardController {
     public ResponseEntity<CardResponse> setAssignment(
             @PathVariable Long id,
             @RequestBody AssignCardRequest request,
-            @RequestHeader(value = "X-User-id", required = false) Long userId){
+            @RequestHeader(value = "X-User-Id", required = false) Long userId){
         return ResponseEntity.ok(cardService.setAssignee(id, request, resolveUserId(userId)));
     }
 
@@ -184,5 +184,14 @@ public class CardController {
     public ResponseEntity<List<CardActivityResponse>> getActivity(
             @PathVariable Long id){
         return ResponseEntity.ok(cardService.getCardActivity(id));
+    }
+
+    @GetMapping("/{id}/activity/paged")
+    public ResponseEntity<PagedResponse<CardActivityResponse>> getActivityPaged(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0")  int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(
+                cardService.getCardActivityPaged(id, page, size));
     }
 }

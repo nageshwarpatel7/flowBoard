@@ -1,21 +1,56 @@
 server:
   port: 8082
+
 spring:
   application:
     name: workspace-service
+
   datasource:
     url: jdbc:mysql://localhost:3306/flowboard_workspace
     username: root
     password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
     open-in-view: false
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${GMAIL_USERNAME}
+    password: ${GMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 eureka:
   client:
     service-url:
       defaultZone: http://localhost:8761/eureka/
   instance:
     prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+  show-actuator: false
+
+frontend:
+  base-url: http://localhost:4200

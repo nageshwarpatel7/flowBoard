@@ -40,4 +40,6 @@ public interface CardService {
     List<CardResponse> searchByTitleOrAssignee(String keyword, Long assigneeId);
 
     List<CardActivityResponse> getCardActivity(Long cardId);
+    PagedResponse<CardActivityResponse> getCardActivityPaged(
+            Long cardId, int page, int size);
 }

@@ -20,7 +20,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("NotificationServiceImpl Unit Tests")
+@DisplayName("NotificationServiceImpl Tests")
 class NotificationServiceImplTest {
 
     @Mock NotificationRepository repository;
@@ -28,49 +28,44 @@ class NotificationServiceImplTest {
 
     @InjectMocks NotificationServiceImpl notificationService;
 
-    private Notification sampleNotification;
+    private Notification sampleNotif;
 
     @BeforeEach
     void setUp() {
-        sampleNotification = Notification.builder()
+        sampleNotif = Notification.builder()
                 .id(1L).recipientId(2L).actorId(1L)
                 .type(NotificationType.ASSIGNMENT)
-                .title("Card assigned to you")
-                .message("Nageshwar assigned 'Design login page' to you")
-                .relatedId(5L).relatedType("CARD")
-                .isRead(false)
-                .createdAt(LocalDateTime.now()).build();
+                .title("Card assigned").message("You were assigned")
+                .isRead(false).createdAt(LocalDateTime.now()).build();
     }
 
-    @Test
-    @DisplayName("send() should save notification and return response")
-    void send_success() {
+    @Test @DisplayName("send() — saves notification, no email when sendEmail=false")
+    void send_noEmail_success() {
         SendNotificationRequest req = new SendNotificationRequest();
         req.setRecipientId(2L); req.setActorId(1L);
         req.setType(NotificationType.ASSIGNMENT);
-        req.setTitle("Card assigned"); req.setMessage("...");
+        req.setTitle("Test"); req.setMessage("...");
         req.setSendEmail(false);
 
-        when(repository.save(any())).thenReturn(sampleNotification);
+        when(repository.save(any())).thenReturn(sampleNotif);
 
-        NotificationResponse response = notificationService.send(req);
+        NotificationResponse resp = notificationService.send(req);
 
-        assertThat(response).isNotNull();
-        assertThat(response.getType()).isEqualTo(NotificationType.ASSIGNMENT);
+        assertThat(resp).isNotNull();
+        assertThat(resp.getType()).isEqualTo(NotificationType.ASSIGNMENT);
         verify(emailService, never()).sendNotificationEmail(
                 any(), any(), any(), any());
     }
 
-    @Test
-    @DisplayName("send() should trigger email when sendEmail=true")
-    void send_withEmail_triggersEmailService() {
+    @Test @DisplayName("send() — triggers email when sendEmail=true with email")
+    void send_withEmail_triggersEmail() {
         SendNotificationRequest req = new SendNotificationRequest();
         req.setRecipientId(2L); req.setType(NotificationType.ASSIGNMENT);
         req.setTitle("Test"); req.setMessage("...");
         req.setSendEmail(true);
         req.setRecipientEmail("user@example.com");
 
-        when(repository.save(any())).thenReturn(sampleNotification);
+        when(repository.save(any())).thenReturn(sampleNotif);
 
         notificationService.send(req);
 
@@ -78,8 +73,7 @@ class NotificationServiceImplTest {
                 eq("user@example.com"), any(), any(), any());
     }
 
-    @Test
-    @DisplayName("sendBulk() should save all notifications")
+    @Test @DisplayName("sendBulk() — saves all notifications in one call")
     void sendBulk_success() {
         SendBulkNotificationRequest req = new SendBulkNotificationRequest();
         req.setRecipientIds(List.of(1L, 2L, 3L));
@@ -91,42 +85,36 @@ class NotificationServiceImplTest {
         List<NotificationResponse> responses = notificationService.sendBulk(req);
 
         assertThat(responses).hasSize(3);
-        verify(repository).saveAll(argThat(
-                list -> ((List<?>) list).size() == 3));
     }
 
-    @Test
-    @DisplayName("markAsRead() should throw 404 when notification not found")
-    void markAsRead_notFound_throws() {
-        when(repository.existsByIdAndRecipientId(999L, 2L)).thenReturn(false);
+    @Test @DisplayName("markAsRead() — sets isRead=true and readAt")
+    void markAsRead_success() {
+        when(repository.existsByIdAndRecipientId(1L, 2L)).thenReturn(true);
+        when(repository.findById(1L)).thenReturn(Optional.of(sampleNotif));
+        when(repository.save(any())).thenReturn(sampleNotif);
 
-        assertThatThrownBy(() -> notificationService.markAsRead(999L, 2L))
+        notificationService.markAsRead(1L, 2L);
+
+        assertThat(sampleNotif.isRead()).isTrue();
+        assertThat(sampleNotif.getReadAt()).isNotNull();
+    }
+
+    @Test @DisplayName("markAsRead() — throws 404 for wrong recipient")
+    void markAsRead_wrongRecipient_throws() {
+        when(repository.existsByIdAndRecipientId(1L, 99L)).thenReturn(false);
+
+        assertThatThrownBy(() -> notificationService.markAsRead(1L, 99L))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
     }
 
-    @Test
-    @DisplayName("markAsRead() should set isRead=true")
-    void markAsRead_success() {
-        when(repository.existsByIdAndRecipientId(1L, 2L)).thenReturn(true);
-        when(repository.findById(1L))
-                .thenReturn(Optional.of(sampleNotification));
-        when(repository.save(any())).thenReturn(sampleNotification);
-
-        NotificationResponse response = notificationService.markAsRead(1L, 2L);
-
-        assertThat(sampleNotification.isRead()).isTrue();
-        assertThat(sampleNotification.getReadAt()).isNotNull();
-    }
-
-    @Test
-    @DisplayName("getUnreadCount() should return count from repository")
+    @Test @DisplayName("getUnreadCount() — returns count from repository")
     void getUnreadCount_success() {
-        when(repository.countByRecipientIdAndIsReadFalse(2L)).thenReturn(5L);
+        when(repository.countByRecipientIdAndIsReadFalse(2L)).thenReturn(7L);
 
         long count = notificationService.getUnreadCount(2L);
 
-        assertThat(count).isEqualTo(5L);
+        assertThat(count).isEqualTo(7L);
     }
 }

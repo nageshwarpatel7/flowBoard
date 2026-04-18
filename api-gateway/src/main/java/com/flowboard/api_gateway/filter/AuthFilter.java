@@ -69,7 +69,7 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
             // ---- extract claims and forward as headers ----
             String email = jwtUtil.extractEmail(token);
             Long userId = jwtUtil.extractUserId(token);
-            String role = jwtUtil.extraxctRole(token);
+            String role = jwtUtil.extractRole(token);
 
             log.debug("JWT valid -> email={} userId={} role={} path={}",
                     email, userId, role, path);
@@ -79,7 +79,7 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
                     .header("X-User-Email", email)
                     .header("X-User-Id", String.valueOf(userId))
                     .header("X-User-Role", role)
-                    .headers(h->h.remove(HttpHeaders.AUTHORIZATION))
+                    //.headers(h->h.remove(HttpHeaders.AUTHORIZATION))
                     .build();
 
             log.debug("JWT valid — email={} userId={} path={}", email, userId, path);

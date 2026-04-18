@@ -4,6 +4,12 @@ import com.flowBoard.auth_service.dto.*;
 import com.flowBoard.auth_service.entity.ROLE;
 import com.flowBoard.auth_service.entity.User;
 import com.flowBoard.auth_service.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -19,21 +25,38 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "Authentication", description = "Register, login, otp, profile")
 public class AuthController {
     private final AuthService authService;
 
+    @Operation(summary = "Register new user", description = "Creates a new account and sends OTP")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User registered successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input or duplicate email")
+    })
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request){
+    public ResponseEntity<AuthResponse> register(
+            @Valid @RequestBody RegisterRequest request){
         return ResponseEntity.ok(authService.register(request));
     }
 
+    @Operation(summary = "Login user", description = "Authenticate user and return JWT token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Login successful"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials"),
+            @ApiResponse(responseCode = "403", description = "Email not verified or account inactive")
+    })
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request){
+    public ResponseEntity<AuthResponse> login(
+            @Valid @RequestBody LoginRequest request){
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @Operation(summary = "Logout user", description = "Invalidate JWT token")
     @PostMapping("/logout")
-    public ResponseEntity<String> logout(@RequestHeader("Authorization") String authHeader){
+    public ResponseEntity<String> logout(
+            @Parameter(description = "Bearer token", required = true)
+            @RequestHeader("Authorization") String authHeader){
         String token = authHeader.substring(7);
         authService.logout(token);
         return ResponseEntity.ok("Logged out successfully");
@@ -49,22 +72,28 @@ public class AuthController {
         return ResponseEntity.ok(authService.refreshToken(request.getRefreshToken()));
     }
 
+    @Operation(summary = "Get user profile")
     @GetMapping("/profile")
-    public ResponseEntity<UserProfileDto> getProfile(@AuthenticationPrincipal User user){
+    public ResponseEntity<UserProfileDto> getProfile(
+            @AuthenticationPrincipal User user){
         User found = authService.getUserById(user.getId());
         return ResponseEntity.ok(toProfileDto(found));
     }
 
+    @Operation(summary = "Update user profile")
     @PutMapping("/profile")
-    public ResponseEntity<String> updateProfile(@AuthenticationPrincipal User user,
-                                                @Valid @RequestBody UpdateProfileRequest request){
+    public ResponseEntity<String> updateProfile(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody UpdateProfileRequest request){
         authService.updateProfile(user.getId(), request);
         return ResponseEntity.ok("Profile updated successfully");
     }
 
+    @Operation(summary = "Change user password")
     @PutMapping("/password")
-    public ResponseEntity<String> changePassword(@AuthenticationPrincipal User user,
-                                                 @Valid @RequestBody ChangePasswordRequest request) {
+    public ResponseEntity<String> changePassword(
+            @AuthenticationPrincipal User user,
+            @Valid @RequestBody ChangePasswordRequest request) {
         authService.changePassword(user.getId(), request);
         return ResponseEntity.ok("Password changed successfully");
     }
@@ -80,12 +109,12 @@ public class AuthController {
         return ResponseEntity.ok("Account deactivated");
     }
 
-    @GetMapping("/admin/users")
+    @Operation(summary = "Get all users (Admin only)")
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    @GetMapping("/admin/users")
     public ResponseEntity<List<User>> getAllUsers(){
         return ResponseEntity.ok(authService.getAllUsers());
     }
-
     @GetMapping("/admin/users/role/{role}")
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public ResponseEntity<List<User>> getUsersByRole(@PathVariable ROLE role){
@@ -119,22 +148,28 @@ public class AuthController {
         return ResponseEntity.ok("Verification OTP send to "+email);
     }
 
+    @Operation(summary = "Verify email using OTP")
     @PostMapping("/verify-email")
-    public ResponseEntity<String> verifyEmail(@Valid @RequestBody VerifyOtpRequest request){
+    public ResponseEntity<String> verifyEmail(
+            @Valid @RequestBody VerifyOtpRequest request){
         authService.verifyEmail(request.getEmail(), request.getOtp());
-        return ResponseEntity.ok("Email verified successfully. You can log in.");
+        return ResponseEntity.ok("Email verified successfully");
     }
 
+    @Operation(summary = "Send OTP for password reset")
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request){
+    public ResponseEntity<String> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request){
         authService.sendForgotPasswordOtp(request.getEmail());
-        return ResponseEntity.ok("Password reset OTP send to "+request.getEmail());
+        return ResponseEntity.ok("OTP sent");
     }
 
+    @Operation(summary = "Reset password using OTP")
     @PostMapping("/reset-password")
-    public ResponseEntity<String> resetPassword(@Valid @RequestBody ResetPasswordRequest request){
+    public ResponseEntity<String> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request){
         authService.resetPassword(request);
-        return ResponseEntity.ok("Password reset successfully. You can now log in.");
+        return ResponseEntity.ok("Password reset successfully");
     }
 
     private UserProfileDto toProfileDto(User user){

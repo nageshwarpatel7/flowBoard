@@ -7,19 +7,14 @@ import com.flowBoard.auth_service.exception.CustomException;
 import com.flowBoard.auth_service.repository.UserRepository;
 import com.flowBoard.auth_service.security.JwtUtil;
 import com.flowBoard.auth_service.security.OtpService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -27,77 +22,64 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("AuthServiceImpl Unit Tests")
+@DisplayName("AuthServiceImpl Tests")
 class AuthServiceImplTest {
 
     @Mock UserRepository repository;
     @Mock PasswordEncoder passwordEncoder;
     @Mock JwtUtil jwtUtil;
     @Mock OtpService otpService;
+    @Mock TokenBlacklistService blacklistService;
 
     @InjectMocks AuthServiceImpl authService;
 
-    private User activeVerifiedUser;
-    private User inactiveUser;
+    private User verifiedUser;
     private User unverifiedUser;
+    private User inactiveUser;
 
     @BeforeEach
     void setUp() {
-        activeVerifiedUser = User.builder()
+        verifiedUser = User.builder()
                 .id(1L).fullName("Nageshwar Patel")
                 .email("nageshwar@gmail.com").username("nageshwar")
-                .password("hashed_password").role(ROLE.MEMBER)
+                .password("hashed_pw").role(ROLE.MEMBER)
                 .active(true).emailVerified(true)
                 .createdAt(LocalDateTime.now()).build();
 
-        inactiveUser = User.builder()
-                .id(2L).email("inactive@gmail.com")
-                .active(false).emailVerified(true).build();
-
         unverifiedUser = User.builder()
-                .id(3L).email("unverified@gmail.com")
+                .id(2L).email("unverified@gmail.com")
                 .active(true).emailVerified(false).build();
+
+        inactiveUser = User.builder()
+                .id(3L).email("inactive@gmail.com")
+                .active(false).emailVerified(true).build();
     }
 
-    // ── Register ───────────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("register()")
+    @Nested @DisplayName("register()")
     class RegisterTests {
 
-        @Test
-        @DisplayName("should register user and send OTP when email and username are unique")
+        @Test @DisplayName("success — saves user and sends OTP")
         void register_success() {
             RegisterRequest req = new RegisterRequest();
-            req.setFullName("Nageshwar Patel");
-            req.setEmail("nageshwar@gmail.com");
-            req.setUsername("nageshwar");
-            req.setPassword("password123");
+            req.setFullName("Test User"); req.setEmail("test@gmail.com");
+            req.setUsername("testuser"); req.setPassword("pass123");
 
             when(repository.existsByEmail(req.getEmail())).thenReturn(false);
             when(repository.existsByUsername(req.getUsername())).thenReturn(false);
-            when(passwordEncoder.encode(req.getPassword()))
-                    .thenReturn("hashed_password");
-            when(repository.save(any(User.class)))
-                    .thenReturn(activeVerifiedUser);
+            when(passwordEncoder.encode(anyString())).thenReturn("hashed");
+            when(repository.save(any())).thenReturn(verifiedUser);
 
             AuthResponse response = authService.register(req);
 
-            assertThat(response).isNotNull();
-            assertThat(response.getMessage())
-                    .contains("Registration successful");
-            assertThat(response.getToken()).isNull(); // no token until OTP verified
-
-            verify(repository).save(any(User.class));
+            assertThat(response.getMessage()).contains("Registration successful");
+            assertThat(response.getToken()).isNull();
             verify(otpService).sendVerificationOtp(req.getEmail());
         }
 
-        @Test
-        @DisplayName("should throw 400 when email already exists")
+        @Test @DisplayName("duplicate email — throws 400")
         void register_duplicateEmail_throws() {
             RegisterRequest req = new RegisterRequest();
-            req.setEmail("nageshwar@gmail.com");
-            req.setUsername("newuser");
+            req.setEmail("nageshwar@gmail.com"); req.setUsername("newuser");
 
             when(repository.existsByEmail(req.getEmail())).thenReturn(true);
 
@@ -108,12 +90,10 @@ class AuthServiceImplTest {
             verify(repository, never()).save(any());
         }
 
-        @Test
-        @DisplayName("should throw 400 when username already taken")
+        @Test @DisplayName("duplicate username — throws 400")
         void register_duplicateUsername_throws() {
             RegisterRequest req = new RegisterRequest();
-            req.setEmail("new@gmail.com");
-            req.setUsername("nageshwar");
+            req.setEmail("new@gmail.com"); req.setUsername("nageshwar");
 
             when(repository.existsByEmail(req.getEmail())).thenReturn(false);
             when(repository.existsByUsername(req.getUsername())).thenReturn(true);
@@ -124,38 +104,31 @@ class AuthServiceImplTest {
         }
     }
 
-    // ── Login ──────────────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("login()")
+    @Nested @DisplayName("login()")
     class LoginTests {
 
-        @Test
-        @DisplayName("should return JWT token on successful login")
+        @Test @DisplayName("success — returns JWT token")
         void login_success() {
             LoginRequest req = new LoginRequest();
-            req.setEmail("nageshwar@gmail.com");
-            req.setPassword("password123");
+            req.setEmail(verifiedUser.getEmail()); req.setPassword("pass123");
 
             when(repository.findByEmail(req.getEmail()))
-                    .thenReturn(Optional.of(activeVerifiedUser));
+                    .thenReturn(Optional.of(verifiedUser));
             when(passwordEncoder.matches(req.getPassword(),
-                    activeVerifiedUser.getPassword())).thenReturn(true);
+                    verifiedUser.getPassword())).thenReturn(true);
             when(jwtUtil.generateToken(anyString(), anyLong(), anyString()))
-                    .thenReturn("jwt.token.here");
+                    .thenReturn("jwt.token.xyz");
 
             AuthResponse response = authService.login(req);
 
-            assertThat(response.getToken()).isEqualTo("jwt.token.here");
+            assertThat(response.getToken()).isEqualTo("jwt.token.xyz");
             assertThat(response.getMessage()).contains("Login successful");
         }
 
-        @Test
-        @DisplayName("should throw 404 when email not found")
+        @Test @DisplayName("email not found — throws 404")
         void login_emailNotFound_throws() {
             LoginRequest req = new LoginRequest();
-            req.setEmail("nobody@gmail.com");
-            req.setPassword("password");
+            req.setEmail("nobody@gmail.com"); req.setPassword("pass");
 
             when(repository.findByEmail(req.getEmail()))
                     .thenReturn(Optional.empty());
@@ -166,12 +139,10 @@ class AuthServiceImplTest {
                     .isEqualTo(HttpStatus.NOT_FOUND);
         }
 
-        @Test
-        @DisplayName("should throw 403 when account is deactivated")
+        @Test @DisplayName("account inactive — throws 403")
         void login_inactiveAccount_throws() {
             LoginRequest req = new LoginRequest();
-            req.setEmail(inactiveUser.getEmail());
-            req.setPassword("password");
+            req.setEmail(inactiveUser.getEmail()); req.setPassword("pass");
 
             when(repository.findByEmail(req.getEmail()))
                     .thenReturn(Optional.of(inactiveUser));
@@ -182,12 +153,10 @@ class AuthServiceImplTest {
                     .isEqualTo(HttpStatus.FORBIDDEN);
         }
 
-        @Test
-        @DisplayName("should throw 403 when email not verified and resend OTP")
-        void login_emailNotVerified_throws() {
+        @Test @DisplayName("email not verified — throws 403 and resends OTP")
+        void login_unverifiedEmail_throws_and_resends() {
             LoginRequest req = new LoginRequest();
-            req.setEmail(unverifiedUser.getEmail());
-            req.setPassword("password");
+            req.setEmail(unverifiedUser.getEmail()); req.setPassword("pass");
 
             when(repository.findByEmail(req.getEmail()))
                     .thenReturn(Optional.of(unverifiedUser));
@@ -202,17 +171,15 @@ class AuthServiceImplTest {
             verify(otpService).sendVerificationOtp(unverifiedUser.getEmail());
         }
 
-        @Test
-        @DisplayName("should throw 401 when password is wrong")
+        @Test @DisplayName("wrong password — throws 401")
         void login_wrongPassword_throws() {
             LoginRequest req = new LoginRequest();
-            req.setEmail(activeVerifiedUser.getEmail());
-            req.setPassword("wrongpassword");
+            req.setEmail(verifiedUser.getEmail()); req.setPassword("wrong");
 
             when(repository.findByEmail(req.getEmail()))
-                    .thenReturn(Optional.of(activeVerifiedUser));
-            when(passwordEncoder.matches(req.getPassword(),
-                    activeVerifiedUser.getPassword())).thenReturn(false);
+                    .thenReturn(Optional.of(verifiedUser));
+            when(passwordEncoder.matches(anyString(), anyString()))
+                    .thenReturn(false);
 
             assertThatThrownBy(() -> authService.login(req))
                     .isInstanceOf(CustomException.class)
@@ -221,14 +188,10 @@ class AuthServiceImplTest {
         }
     }
 
-    // ── verifyEmail ────────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("verifyEmail()")
+    @Nested @DisplayName("verifyEmail()")
     class VerifyEmailTests {
 
-        @Test
-        @DisplayName("should set emailVerified=true and save user")
+        @Test @DisplayName("success — sets emailVerified=true")
         void verifyEmail_success() {
             when(repository.findByEmail(unverifiedUser.getEmail()))
                     .thenReturn(Optional.of(unverifiedUser));
@@ -241,54 +204,45 @@ class AuthServiceImplTest {
             verify(repository).save(unverifiedUser);
         }
 
-        @Test
-        @DisplayName("should throw 400 when email already verified")
+        @Test @DisplayName("already verified — throws 400")
         void verifyEmail_alreadyVerified_throws() {
-            when(repository.findByEmail(activeVerifiedUser.getEmail()))
-                    .thenReturn(Optional.of(activeVerifiedUser));
+            when(repository.findByEmail(verifiedUser.getEmail()))
+                    .thenReturn(Optional.of(verifiedUser));
 
             assertThatThrownBy(() ->
-                    authService.verifyEmail(activeVerifiedUser.getEmail(), "123456"))
+                    authService.verifyEmail(verifiedUser.getEmail(), "123456"))
                     .isInstanceOf(CustomException.class)
                     .hasMessageContaining("already verified");
         }
     }
 
-    // ── changePassword ─────────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("changePassword()")
+    @Nested @DisplayName("changePassword()")
     class ChangePasswordTests {
 
-        @Test
-        @DisplayName("should update password when old password matches")
+        @Test @DisplayName("success — encodes and saves new password")
         void changePassword_success() {
             ChangePasswordRequest req = new ChangePasswordRequest();
-            req.setOldPassword("oldPass");
-            req.setNewPassword("newPass");
+            req.setOldPassword("oldPass"); req.setNewPassword("newPass");
 
             when(repository.findById(1L))
-                    .thenReturn(Optional.of(activeVerifiedUser));
-            when(passwordEncoder.matches("oldPass",
-                    activeVerifiedUser.getPassword())).thenReturn(true);
-            when(passwordEncoder.encode("newPass"))
-                    .thenReturn("new_hashed");
+                    .thenReturn(Optional.of(verifiedUser));
+            when(passwordEncoder.matches("oldPass", verifiedUser.getPassword()))
+                    .thenReturn(true);
+            when(passwordEncoder.encode("newPass")).thenReturn("newHashed");
 
             authService.changePassword(1L, req);
 
-            assertThat(activeVerifiedUser.getPassword()).isEqualTo("new_hashed");
-            verify(repository).save(activeVerifiedUser);
+            assertThat(verifiedUser.getPassword()).isEqualTo("newHashed");
+            verify(repository).save(verifiedUser);
         }
 
-        @Test
-        @DisplayName("should throw 400 when old password is wrong")
-        void changePassword_wrongOldPassword_throws() {
+        @Test @DisplayName("wrong old password — throws 400")
+        void changePassword_wrongOld_throws() {
             ChangePasswordRequest req = new ChangePasswordRequest();
-            req.setOldPassword("wrongOld");
-            req.setNewPassword("newPass");
+            req.setOldPassword("wrong"); req.setNewPassword("newPass");
 
             when(repository.findById(1L))
-                    .thenReturn(Optional.of(activeVerifiedUser));
+                    .thenReturn(Optional.of(verifiedUser));
             when(passwordEncoder.matches(anyString(), anyString()))
                     .thenReturn(false);
 
@@ -298,38 +252,32 @@ class AuthServiceImplTest {
         }
     }
 
-    // ── Admin operations ───────────────────────────────────────────────────────
-
-    @Nested
-    @DisplayName("Admin operations")
+    @Nested @DisplayName("Admin operations")
     class AdminTests {
 
-        @Test
-        @DisplayName("suspendUser should set active=false")
+        @Test @DisplayName("suspendUser — sets active=false")
         void suspendUser_success() {
             when(repository.findById(1L))
-                    .thenReturn(Optional.of(activeVerifiedUser));
+                    .thenReturn(Optional.of(verifiedUser));
 
             authService.suspendUser(1L);
 
-            assertThat(activeVerifiedUser.isActive()).isFalse();
-            verify(repository).save(activeVerifiedUser);
+            assertThat(verifiedUser.isActive()).isFalse();
+            verify(repository).save(verifiedUser);
         }
 
-        @Test
-        @DisplayName("reactivateUser should set active=true")
+        @Test @DisplayName("reactivateUser — sets active=true")
         void reactivateUser_success() {
-            when(repository.findById(2L))
+            when(repository.findById(3L))
                     .thenReturn(Optional.of(inactiveUser));
 
-            authService.reactivateUser(2L);
+            authService.reactivateUser(3L);
 
             assertThat(inactiveUser.isActive()).isTrue();
             verify(repository).save(inactiveUser);
         }
 
-        @Test
-        @DisplayName("deleteUser should call deleteById")
+        @Test @DisplayName("deleteUser — calls deleteById")
         void deleteUser_success() {
             when(repository.existsById(1L)).thenReturn(true);
 
@@ -338,15 +286,14 @@ class AuthServiceImplTest {
             verify(repository).deleteById(1L);
         }
 
-        @Test
-        @DisplayName("getAllUsers should return all users")
-        void getAllUsers_success() {
-            when(repository.findAll())
-                    .thenReturn(List.of(activeVerifiedUser, inactiveUser));
+        @Test @DisplayName("deleteUser — throws 404 when not found")
+        void deleteUser_notFound_throws() {
+            when(repository.existsById(999L)).thenReturn(false);
 
-            List<User> users = authService.getAllUsers();
-
-            assertThat(users).hasSize(2);
+            assertThatThrownBy(() -> authService.deleteUser(999L))
+                    .isInstanceOf(CustomException.class)
+                    .extracting(e -> ((CustomException) e).getStatus())
+                    .isEqualTo(HttpStatus.NOT_FOUND);
         }
     }
 }

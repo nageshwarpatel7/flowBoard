@@ -21,4 +21,10 @@ public interface WorkspaceService {
     void removeMember(Long workspaceId, Long userId, Long requesterId);
     void updateMemberRole(Long workspaceId,Long userId, UpdateMemberRoleRequest requesr, Long requesterId);
     List<WorkspaceMember> getMembers(Long workspaceId);
+
+    void inviteMember(Long workspaceId, InviteMemberRequest request, Long requesterId);
+    void acceptInvitation(String token, Long userId);
+    void revokeInvitation(Long workspaceId, Long invitationId, Long requesterId);
+    List<com.flowboard.workspace_service.entity.WorkspaceInvitation>
+    getPendingInvitations(Long workspaceId, Long requesterId);
 }

@@ -1,15 +1,19 @@
 package com.flowboard.card_service.service;
 
+import com.flowboard.card_service.config.RabbitMQConfig;
 import com.flowboard.card_service.dto.*;
 import com.flowboard.card_service.entity.Card;
 import com.flowboard.card_service.entity.CardActivity;
 import com.flowboard.card_service.enums.CardStatus;
 import com.flowboard.card_service.enums.Priority;
+import com.flowboard.card_service.event.CardAssignedEvent;
 import com.flowboard.card_service.exception.CustomException;
 import com.flowboard.card_service.repository.CardActivityRepository;
 import com.flowboard.card_service.repository.CardRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +30,7 @@ public class CardServiceImpl implements CardService{
 
     private final CardRepository cardRepository;
     private final CardActivityRepository activityRepository;
+    private final RabbitTemplate rabbitTemplate;
 
     @Override
     @Transactional
@@ -324,12 +329,6 @@ public class CardServiceImpl implements CardService{
                                     AssignCardRequest request,
                                     Long userId) {
         Card card = findCard(cardId);
-
-        String oldAssignee = card.getAssigneeId() != null
-                ? String.valueOf(card.getAssigneeId()) : "none";
-        String newAssignee = request.getAssigneeId() != null
-                ? String.valueOf(request.getAssigneeId()) : "none";
-
         card.setAssigneeId(request.getAssigneeId());
         card.setUpdatedAt(LocalDateTime.now());
         cardRepository.save(card);
@@ -338,10 +337,28 @@ public class CardServiceImpl implements CardService{
                 request.getAssigneeId() != null
                         ? "assigned card to userId=" + request.getAssigneeId()
                         : "unassigned card",
-                oldAssignee, newAssignee);
+                null, String.valueOf(request.getAssigneeId()));
 
-        log.info("Card assignee updated: id={} assigneeId={}",
-                cardId, request.getAssigneeId());
+        // Publish assignment event to RabbitMQ — notification-service listens
+        if (request.getAssigneeId() != null) {
+            CardAssignedEvent event = new CardAssignedEvent(
+                    card.getId(),
+                    card.getBoardId(),
+                    card.getTitle(),
+                    request.getAssigneeId(),
+                    userId,
+                    null,        // email resolved by notification-service
+                    null         // name resolved by notification-service
+            );
+
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.FLOWBOARD_EXCHANGE,
+                    RabbitMQConfig.ASSIGNMENT_KEY,
+                    event
+            );
+            log.info("CardAssignedEvent published for cardId={}", cardId);
+        }
+
         return toResponse(card);
     }
 
@@ -502,5 +519,15 @@ public class CardServiceImpl implements CardService{
                 .newValue(a.getNewValue())
                 .createdAt(a.getCreatedAt())
                 .build();
+    }
+
+    @Override
+    public PagedResponse<CardActivityResponse> getCardActivityPaged(
+            Long cardId, int page, int size) {
+        findCard(cardId);
+        var pageRequest = PageRequest.of(page, size);
+        var activityPage = activityRepository
+                .findByCardIdOrderByCreatedAtDesc(cardId, pageRequest);
+        return PagedResponse.of(activityPage.map(this::toActivityResponse));
     }
 }
