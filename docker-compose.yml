@@ -191,8 +191,28 @@ services:
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       JWT_SECRET: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: flowboard_redis_secret
     depends_on:
-      eureka-server: {condition: service_healthy}
+      eureka-server: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_payment
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "1234"
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      STRIPE_SECRET_KEY: sk_test_YOUR_KEY
+      STRIPE_WEBHOOK_SECRET: whsec_YOUR_WEBHOOK_SECRET
+    depends_on:
+      mysql: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
 
 volumes:
   mysql_data:

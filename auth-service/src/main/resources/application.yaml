@@ -20,8 +20,8 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${GMAIL_USERNAME:nageshwarpatel660@gmail.com}
-    password: ${GMAIL_PASSWORD:tvrjwsrefyidtdns}
+    username: ${GMAIL_USERNAME}
+    password: ${GMAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -74,3 +74,12 @@ springdoc:
     tags-sorter: alpha
     display-request-duration: true
   show-actuator: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

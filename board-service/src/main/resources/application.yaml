@@ -29,3 +29,12 @@ springdoc:
     tags-sorter: alpha
     display-request-duration: true
   show-actuator: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

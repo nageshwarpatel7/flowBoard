@@ -14,7 +14,6 @@ import com.flowboard.workspace_service.repository.WorkspaceMemberRepository;
 import com.flowboard.workspace_service.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.jdbc.Work;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -282,7 +281,6 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     public WorkspaceMember addMember(Long workspaceId,
                                      AddMemberRequest request,
                                      Long requesterId){
-        findWorkspace(workspaceId);
         requireAdmin(workspaceId, requesterId);
 
         if(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, request.getUserId())){

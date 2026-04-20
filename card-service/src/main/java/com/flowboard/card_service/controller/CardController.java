@@ -194,4 +194,22 @@ public class CardController {
         return ResponseEntity.ok(
                 cardService.getCardActivityPaged(id, page, size));
     }
+
+    @GetMapping("/board/{boardId}/stats")
+    public ResponseEntity<BoardStatsResponse> getBoardStats(
+            @PathVariable Long boardId) {
+        return ResponseEntity.ok(cardService.getBoardStats(boardId));
+    }
+
+    @PostMapping("/{id}/copy")
+    public ResponseEntity<CardResponse> copyCard(
+            @PathVariable Long id,
+            @RequestParam(required = false) Long targetListId,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        // If no targetListId given, copy to same list
+        CardResponse original = cardService.getCardById(id);
+        Long listId = targetListId != null ? targetListId : original.getListId();
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(cardService.copyCard(id, listId, resolveUserId(userId)));
+    }
 }

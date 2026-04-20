@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
@@ -529,5 +530,85 @@ public class CardServiceImpl implements CardService{
         var activityPage = activityRepository
                 .findByCardIdOrderByCreatedAtDesc(cardId, pageRequest);
         return PagedResponse.of(activityPage.map(this::toActivityResponse));
+    }
+
+    @Override
+    public BoardStatsResponse getBoardStats(Long boardId) {
+        List<Card> active   = cardRepository.findByBoardIdAndIsArchivedFalse(boardId);
+        List<Card> archived = cardRepository.findByBoardIdAndIsArchivedTrue(boardId);
+        List<Card> overdue  = cardRepository.findOverdueByBoardId(boardId, LocalDate.now());
+
+        long total     = active.size();
+        long completed = active.stream()
+                .filter(c -> c.getStatus() == CardStatus.DONE).count();
+
+        Map<String, Long> byStatus = active.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        c -> c.getStatus().name(),
+                        java.util.stream.Collectors.counting()));
+
+        Map<String, Long> byPriority = active.stream()
+                .collect(java.util.stream.Collectors.groupingBy(
+                        c -> c.getPriority().name(),
+                        java.util.stream.Collectors.counting()));
+
+        Map<Long, Long> byAssignee = active.stream()
+                .filter(c -> c.getAssigneeId() != null)
+                .collect(java.util.stream.Collectors.groupingBy(
+                        Card::getAssigneeId,
+                        java.util.stream.Collectors.counting()));
+
+        return BoardStatsResponse.builder()
+                .boardId(boardId)
+                .totalCards(total)
+                .completedCards(completed)
+                .overdueCards(overdue.size())
+                .archivedCards(archived.size())
+                .completionRate(total == 0 ? 0 :
+                        Math.round((double) completed / total * 1000.0) / 10.0)
+                .overdueRate(total == 0 ? 0 :
+                        Math.round((double) overdue.size() / total * 1000.0) / 10.0)
+                .cardsByStatus(byStatus)
+                .cardsByPriority(byPriority)
+                .cardsByAssignee(byAssignee)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public CardResponse copyCard(Long cardId, Long targetListId, Long userId) {
+        Card original = findCard(cardId);
+
+        int position = cardRepository
+                .findMaxPositionByListId(targetListId)
+                .map(max -> max + 1)
+                .orElse(0);
+
+        Card copy = Card.builder()
+                .listId(targetListId)
+                .boardId(original.getBoardId())
+                .title("Copy of " + original.getTitle())
+                .description(original.getDescription())
+                .position(position)
+                .priority(original.getPriority())
+                .status(CardStatus.TO_DO)
+                .dueDate(original.getDueDate())
+                .startDate(original.getStartDate())
+                .coverColor(original.getCoverColor())
+                .assigneeId(original.getAssigneeId())
+                .createdById(userId)
+                .isArchived(false)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        cardRepository.save(copy);
+
+        logActivity(copy.getId(), userId, "CREATE",
+                "copied from card #" + cardId, null, copy.getTitle());
+
+        log.info("Card copied: original={} copy={} targetList={}",
+                cardId, copy.getId(), targetListId);
+
+        return toResponse(copy);
     }
 }

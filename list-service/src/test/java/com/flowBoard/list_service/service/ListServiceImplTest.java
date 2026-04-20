@@ -43,14 +43,16 @@ class ListServiceImplTest {
         req.setName("To Do");
         req.setPosition(null);
 
-        when(listRepository.findMaxPositionByBoardId(10L))
+        // FIX: anyLong() instead of any() for Long parameter — avoids NPE on unboxing
+        when(listRepository.findMaxPositionByBoardId(anyLong()))
                 .thenReturn(Optional.of(2));
         when(listRepository.save(any())).thenReturn(sampleList);
 
         ListResponse response = listService.createList(req, 1L);
 
         assertThat(response).isNotNull();
-        verify(listRepository, never()).shiftPositionsRight(any(), any());
+        // FIX: anyLong(), anyInt() instead of any(), any()
+        verify(listRepository, never()).shiftPositionsRight(anyLong(), anyInt());
     }
 
     @Test
@@ -123,7 +125,7 @@ class ListServiceImplTest {
         sampleList.setPosition(0);
 
         when(listRepository.findById(1L)).thenReturn(Optional.of(sampleList));
-        when(listRepository.findMaxPositionByBoardId(10L))
+        when(listRepository.findMaxPositionByBoardId(anyLong()))
                 .thenReturn(Optional.of(3));
         when(listRepository.save(any())).thenReturn(sampleList);
 

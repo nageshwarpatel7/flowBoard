@@ -42,4 +42,7 @@ public interface CardService {
     List<CardActivityResponse> getCardActivity(Long cardId);
     PagedResponse<CardActivityResponse> getCardActivityPaged(
             Long cardId, int page, int size);
+
+    BoardStatsResponse getBoardStats(Long boardId);
+    CardResponse copyCard(Long cardId, Long targetListId, Long userId);
 }

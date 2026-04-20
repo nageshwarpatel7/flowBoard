@@ -2,6 +2,7 @@ package com.flowBoard.auth_service.security;
 
 import com.flowBoard.auth_service.entity.User;
 import com.flowBoard.auth_service.repository.UserRepository;
+import com.flowBoard.auth_service.service.TokenBlacklistService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,10 +18,12 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Component
-@RequiredArgsConstructor  // Lombok generates the constructor — do NOT write one manually
+@RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
+
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
+    private final TokenBlacklistService blacklistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -36,8 +39,16 @@ public class JwtFilter extends OncePerRequestFilter {
         }
 
         String token = authHeader.substring(7);
-        String email;
 
+        if (blacklistService.isBlacklisted(token)) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write(
+                    "{\"status\":401,\"message\":\"Token has been revoked\"}");
+            return;
+        }
+
+        String email;
         try {
             email = jwtUtil.extractEmail(token);
         } catch (Exception e) {
@@ -54,15 +65,11 @@ public class JwtFilter extends OncePerRequestFilter {
             }
 
             User user = optionalUser.get();
-
             UsernamePasswordAuthenticationToken authToken =
                     new UsernamePasswordAuthenticationToken(
-                            user,
-                            null,
-                            user.getAuthorities()
-                    );
-
-            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            user, null, user.getAuthorities());
+            authToken.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authToken);
         }
 

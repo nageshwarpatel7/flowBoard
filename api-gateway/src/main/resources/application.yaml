@@ -107,6 +107,15 @@ spring:
                 redis-rate-limiter: "#{@defaultRateLimiter}"
                 key-resolver: "#{@userKeyResolver}"
 
+        - id: payment-service
+          uri: lb://PAYMENT-SERVICE
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - name: AuthFilter
+              args:
+                excludedPaths: /api/v1/payments/plans,/api/v1/payments/webhook
+
       globalcors:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
@@ -136,3 +145,12 @@ logging:
   level:
     org.springframework.cloud.gateway: INFO
     com.flowBoard: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never

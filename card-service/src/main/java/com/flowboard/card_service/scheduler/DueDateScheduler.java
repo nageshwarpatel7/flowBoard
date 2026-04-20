@@ -83,11 +83,8 @@ public class DueDateScheduler {
 
     @Scheduled(cron = "0 0 9 * * *")
     public void notifyOverdueCards(){
-        LocalDate yesterday = LocalDate.now().minusDays(1);
 
-        List<Card> overdueCards = cardRepository.findByDueDateAndIsArchivedFalseAndStatusNot(
-                yesterday, CardStatus.DONE
-        );
+        List<Card> overdueCards = cardRepository.findAllOverdueBeforeDate(LocalDate.now());
 
         log.info("[Schedular] Overdue check: {} cards overdue", overdueCards.size());
 

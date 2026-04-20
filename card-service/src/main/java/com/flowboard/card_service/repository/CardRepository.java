@@ -101,4 +101,19 @@ public interface CardRepository extends JpaRepository<Card, Long> {
     List<Card> searchByTitleOrAssignee(
             @Param("keyword") String keyword,
             @Param("assigneeId") Long assigneeId);
+
+    // Cards overdue BEFORE today (catches all overdue, not just yesterday)
+    @Query("SELECT c FROM Card c WHERE c.boardId = :boardId " +
+            "AND c.isArchived = false " +
+            "AND c.dueDate < :today " +
+            "AND c.status != 'DONE'")
+    List<Card> findOverdueByBoardIdBeforeDate(
+            @Param("boardId") Long boardId,
+            @Param("today") LocalDate today);
+
+    // Global: all overdue cards across all boards
+    @Query("SELECT c FROM Card c WHERE c.isArchived = false " +
+            "AND c.dueDate < :today " +
+            "AND c.status != 'DONE'")
+    List<Card> findAllOverdueBeforeDate(@Param("today") LocalDate today);
 }
