@@ -72,10 +72,11 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     @Transactional
     public void inviteMember(Long workspaceId,
                              InviteMemberRequest request,
-                             Long invitedBy) {
+                             Long invitedBy,
+                             String userRole) {
 
         Workspace workspace = findWorkspace(workspaceId);
-        requireAdmin(workspaceId, invitedBy);
+        requireAdmin(workspaceId, invitedBy, userRole);
 
         // Prevent duplicate pending invitations
         if (invitationRepository.existsByWorkspaceIdAndInviteeEmailAndStatus(
@@ -178,8 +179,8 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     @Override
     @Transactional
     public void revokeInvitation(Long workspaceId, Long invitationId,
-                                 Long requesterId) {
-        requireAdmin(workspaceId, requesterId);
+                                 Long requesterId, String userRole) {
+        requireAdmin(workspaceId, requesterId, userRole);
 
         WorkspaceInvitation inv = invitationRepository.findById(invitationId)
                 .orElseThrow(() -> new CustomException(
@@ -204,18 +205,25 @@ public class WorkspaceServiceImpl implements WorkspaceService{
 
     @Override
     public List<WorkspaceInvitation> getPendingInvitations(Long workspaceId,
-                                                           Long requesterId) {
-        requireAdmin(workspaceId, requesterId);
+                                                           Long requesterId,
+                                                           String userRole) {
+        requireAdmin(workspaceId, requesterId, userRole);
         return invitationRepository.findByWorkspaceIdAndStatus(
                 workspaceId, "PENDING");
     }
 
     @Override
-    public WorkspaceResponse getById(Long workspaceId, Long requesterId){
+    public List<WorkspaceResponse> getAllWorkspaces() {
+        return workspaceRepository.findAll().stream().map(this::toResponse).toList();
+    }
+
+
+    @Override
+    public WorkspaceResponse getById(Long workspaceId, Long requesterId, String userRole){
         Workspace workspace = findWorkspace(workspaceId);
 
         if(workspace.getVisibility()==Visibility.PRIVATE){
-            requireMember(workspaceId, requesterId);
+            requireMember(workspaceId, requesterId, userRole);
         }
         return toResponse(workspace);
     }
@@ -242,9 +250,10 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     @Transactional
     public WorkspaceResponse updateWorkspace(Long workspaceId,
                                              UpdateWorkspaceRequest request,
-                                             Long requesterId) {
+                                             Long requesterId,
+                                             String userRole) {
         Workspace workspace = findWorkspace(workspaceId);
-        requireAdmin(workspaceId, requesterId);
+        requireAdmin(workspaceId, requesterId, userRole);
 
         workspace.setName(request.getName());
         workspace.setDescription(request.getDescription());
@@ -265,10 +274,10 @@ public class WorkspaceServiceImpl implements WorkspaceService{
 
     @Override
     @Transactional
-    public void deleteWorkspace(Long workspaceId, Long requesterId){
+    public void deleteWorkspace(Long workspaceId, Long requesterId, String userRole){
         Workspace workspace = findWorkspace(workspaceId);
 
-        if(!workspace.getOwnerId().equals(requesterId)){
+        if(!"PLATFORM_ADMIN".equals(userRole) && !workspace.getOwnerId().equals(requesterId)){
             throw new CustomException("Only the workspace owner can delete it", HttpStatus.FORBIDDEN);
         }
 
@@ -280,8 +289,9 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     @Transactional
     public WorkspaceMember addMember(Long workspaceId,
                                      AddMemberRequest request,
-                                     Long requesterId){
-        requireAdmin(workspaceId, requesterId);
+                                     Long requesterId,
+                                     String userRole){
+        requireAdmin(workspaceId, requesterId, userRole);
 
         if(memberRepository.existsByWorkspaceIdAndUserId(workspaceId, request.getUserId())){
             throw new CustomException("User is already a member of this workspace", HttpStatus.BAD_REQUEST);
@@ -301,9 +311,9 @@ public class WorkspaceServiceImpl implements WorkspaceService{
 
     @Override
     @Transactional
-    public void removeMember(Long workspaceId, Long userId, Long requesterid){
+    public void removeMember(Long workspaceId, Long userId, Long requesterid, String userRole){
         findWorkspace(workspaceId);
-        requireAdmin(workspaceId, requesterid);
+        requireAdmin(workspaceId, requesterid, userRole);
 
         if(!memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)){
             throw new CustomException("User is not a member of this workspace", HttpStatus.NOT_FOUND);
@@ -321,9 +331,9 @@ public class WorkspaceServiceImpl implements WorkspaceService{
     @Override
     @Transactional
     public void updateMemberRole(Long workspaceId, Long userId,
-                                 UpdateMemberRoleRequest request, Long requesterId){
+                                 UpdateMemberRoleRequest request, Long requesterId, String userRole){
         findWorkspace(workspaceId);
-        requireAdmin(workspaceId, requesterId);
+        requireAdmin(workspaceId, requesterId, userRole);
 
         WorkspaceMember member = memberRepository.findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(()-> new CustomException("User is not the member of this workspace", HttpStatus.NOT_FOUND));
@@ -345,14 +355,16 @@ public class WorkspaceServiceImpl implements WorkspaceService{
                         "Workspace not found", HttpStatus.NOT_FOUND));
     }
 
-    private void requireMember(Long workspaceId, Long userId) {
+    private void requireMember(Long workspaceId, Long userId, String userRole) {
+        if ("PLATFORM_ADMIN".equals(userRole)) return;
         if (!memberRepository.existsByWorkspaceIdAndUserId(workspaceId, userId)) {
             throw new CustomException("Access denied — you are not a member of this workspace",
                     HttpStatus.FORBIDDEN);
         }
     }
 
-    private void requireAdmin(Long workspaceId, Long userId) {
+    private void requireAdmin(Long workspaceId, Long userId, String userRole) {
+        if ("PLATFORM_ADMIN".equals(userRole)) return;
         WorkspaceMember member = memberRepository
                 .findByWorkspaceIdAndUserId(workspaceId, userId)
                 .orElseThrow(() -> new CustomException(

@@ -115,10 +115,27 @@ public class AuthController {
     public ResponseEntity<List<User>> getAllUsers(){
         return ResponseEntity.ok(authService.getAllUsers());
     }
+
+    @GetMapping("/admin/stats")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public ResponseEntity<AdminStatsResponse> getAdminStats() {
+        return ResponseEntity.ok(authService.getAdminStats());
+    }
+
     @GetMapping("/admin/users/role/{role}")
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public ResponseEntity<List<User>> getUsersByRole(@PathVariable ROLE role){
         return ResponseEntity.ok(authService.getUsersByRole(role));
+    }
+
+    @PutMapping("/admin/users/{id}/role")
+    @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
+    public ResponseEntity<String> updateUserRole(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, String> payload) {
+        ROLE role = ROLE.valueOf(payload.get("role"));
+        authService.updateUserRole(id, role);
+        return ResponseEntity.ok("User role updated to " + role);
     }
 
     @PutMapping("/admin/users/{id}/suspend")
@@ -128,7 +145,7 @@ public class AuthController {
         return ResponseEntity.ok("User suspended");
     }
 
-    @PutMapping("admin/users/{id}/reactivate")
+    @PutMapping("/admin/users/{id}/reactivate")
     @PreAuthorize("hasAuthority('PLATFORM_ADMIN')")
     public ResponseEntity<String> reactivateUser(@PathVariable Long id){
         authService.reactivateUser(id);
@@ -171,6 +188,21 @@ public class AuthController {
         authService.resetPassword(request);
         return ResponseEntity.ok("Password reset successfully");
     }
+
+    @PostMapping("/reactivate-request")
+    public ResponseEntity<String> sendReactivationOtp(@RequestParam String email) {
+        authService.sendReactivationOtp(email);
+        return ResponseEntity.ok("Reactivation OTP sent to " + email);
+    }
+
+    @PostMapping("/reactivate-verify")
+    public ResponseEntity<String> reactivateAccount(
+            @RequestParam String email,
+            @RequestParam String otp) {
+        authService.reactivateWithOtp(email, otp);
+        return ResponseEntity.ok("Account successfully reactivated. You can now log in.");
+    }
+
 
     private UserProfileDto toProfileDto(User user){
         return new UserProfileDto(

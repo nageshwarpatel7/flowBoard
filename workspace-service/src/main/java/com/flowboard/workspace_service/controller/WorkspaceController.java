@@ -30,9 +30,16 @@ public class WorkspaceController {
     @GetMapping("/{id}")
     public ResponseEntity<WorkspaceResponse> getById(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        return ResponseEntity.ok(workspaceService.getById(id, resolveUserId(userId)));
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        return ResponseEntity.ok(workspaceService.getById(id, resolveUserId(userId), userRole));
     }
+
+    @GetMapping("/admin")
+    public ResponseEntity<List<WorkspaceResponse>> getAllWorkspaces() {
+        return ResponseEntity.ok(workspaceService.getAllWorkspaces());
+    }
+
 
     @GetMapping("/owner/{ownerId}")
     public ResponseEntity<List<WorkspaceResponse>> getByOwner(
@@ -55,16 +62,18 @@ public class WorkspaceController {
     public ResponseEntity<WorkspaceResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateWorkspaceRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
         return ResponseEntity.ok(
-                workspaceService.updateWorkspace(id, request, resolveUserId(userId)));
+                workspaceService.updateWorkspace(id, request, resolveUserId(userId), userRole));
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<String> delete(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        workspaceService.deleteWorkspace(id, resolveUserId(userId));
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        workspaceService.deleteWorkspace(id, resolveUserId(userId), userRole);
         return ResponseEntity.ok("Workspace deleted successfully");
     }
 
@@ -72,17 +81,19 @@ public class WorkspaceController {
     public ResponseEntity<WorkspaceMember> addMember(
             @PathVariable Long id,
             @Valid @RequestBody AddMemberRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(workspaceService.addMember(id, request, resolveUserId(userId)));
+                .body(workspaceService.addMember(id, request, resolveUserId(userId), userRole));
     }
 
     @DeleteMapping("/{id}/member/{memberId}")
     public ResponseEntity<String> removeMember(
             @PathVariable Long id,
             @PathVariable Long memberId,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        workspaceService.removeMember(id, memberId, resolveUserId(userId));
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        workspaceService.removeMember(id, memberId, resolveUserId(userId), userRole);
         return ResponseEntity.ok("Member removed successfully");
     }
 
@@ -91,8 +102,9 @@ public class WorkspaceController {
             @PathVariable Long id,
             @PathVariable Long memberId,
             @Valid @RequestBody UpdateMemberRoleRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        workspaceService.updateMemberRole(id, memberId, request, resolveUserId(userId));
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        workspaceService.updateMemberRole(id, memberId, request, resolveUserId(userId), userRole);
         return ResponseEntity.ok("Member role updated successfully");
     }
 
@@ -107,8 +119,9 @@ public class WorkspaceController {
     public ResponseEntity<String> inviteMember(
             @PathVariable Long id,
             @Valid @RequestBody InviteMemberRequest request,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        workspaceService.inviteMember(id, request, resolveUserId(userId));
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        workspaceService.inviteMember(id, request, resolveUserId(userId), userRole);
         return ResponseEntity.ok("Invitation sent to " + request.getEmail());
     }
 
@@ -128,18 +141,20 @@ public class WorkspaceController {
     public ResponseEntity<String> revokeInvitation(
             @PathVariable Long id,
             @PathVariable Long invitationId,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
-        workspaceService.revokeInvitation(id, invitationId, resolveUserId(userId));
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
+        workspaceService.revokeInvitation(id, invitationId, resolveUserId(userId), userRole);
         return ResponseEntity.ok("Invitation revoked");
     }
 
     // Get all pending invitations for a workspace (ADMIN only)
     @GetMapping("/{id}/invitations")
-    public ResponseEntity<List<WorkspaceInvitation>> getPendingInvitations(
+    public ResponseEntity<List<com.flowboard.workspace_service.entity.WorkspaceInvitation>> getPendingInvitations(
             @PathVariable Long id,
-            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+            @RequestHeader(value = "X-User-Id", required = false) Long userId,
+            @RequestHeader(value = "X-User-Role", required = false) String userRole) {
         return ResponseEntity.ok(
-                workspaceService.getPendingInvitations(id, resolveUserId(userId)));
+                workspaceService.getPendingInvitations(id, resolveUserId(userId), userRole));
     }
 
     // ── Helper ────────────────────────────────────────────────────────────────

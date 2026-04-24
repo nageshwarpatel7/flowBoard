@@ -26,6 +26,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final OtpService otpService;
+    private final EmailService emailService;
     private final TokenBlacklistService blacklistService;
 
     @Override
@@ -63,8 +64,12 @@ public class AuthServiceImpl implements AuthService {
 
         // Check account is active before verifying password
         if (!user.isActive()) {
-            throw new CustomException("Account is deactivated", HttpStatus.FORBIDDEN);
+            if(!otpService.hasActiveOtp(user.getEmail())){
+                otpService.sendReactivationOtp(user.getEmail(), user.getFullName());
+            }
+            throw new CustomException("Account is deactivated. A reactivation OTP has been sent to your email.", HttpStatus.FORBIDDEN);
         }
+
 
         if(!user.isEmailVerified()){
             if(!otpService.hasActiveOtp(user.getEmail())){
@@ -90,9 +95,15 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(()-> new CustomException("User not found", HttpStatus.NOT_FOUND));
 
         if(user.isEmailVerified()){
-            throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
+            if (user.isActive()) {
+                throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
+            }
+            // If verified but inactive, send reactivation OTP instead
+            otpService.sendReactivationOtp(email, user.getFullName());
+            return;
         }
         otpService.sendVerificationOtp(email);
+
     }
 
     @Override
@@ -100,16 +111,26 @@ public class AuthServiceImpl implements AuthService {
         User user = repository.findByEmail(email)
                 .orElseThrow(()-> new CustomException("User not found", HttpStatus.NOT_FOUND));
 
-        if(user.isEmailVerified()){
+        if(user.isEmailVerified() && user.isActive()){
             throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
         }
 
         otpService.verifyOtp(email, otp);
 
-        user.setEmailVerified(true);
+        if (!user.isEmailVerified()) {
+            user.setEmailVerified(true);
+            log.info("Email verified for userId={}", user.getId());
+        }
+        
+        if (!user.isActive()) {
+            user.setActive(true);
+            log.info("Account reactivated via verification flow: userId={}", user.getId());
+            emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), true);
+        }
+
         repository.save(user);
-        log.info("Email verified for userId={}", user.getId());
     }
+
 
     @Override
     public void sendForgotPasswordOtp(String email){
@@ -117,12 +138,44 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(()-> new CustomException("No account is found for this email", HttpStatus.NOT_FOUND));
 
         if(!user.isActive()){
-            throw new CustomException("Account is deacivated", HttpStatus.FORBIDDEN);
+            log.warn("Forgot password requested for inactive account: {}", email);
+            // We allow sending OTP even for inactive accounts to facilitate recovery
         }
 
         otpService.sendForgotPasswordOtp(email);
         log.info("Forgot password OTP send to {}", email);
     }
+
+    @Override
+    public void sendReactivationOtp(String email) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if (user.isActive()) {
+            throw new CustomException("Account is already active", HttpStatus.BAD_REQUEST);
+        }
+
+        otpService.sendReactivationOtp(email, user.getFullName());
+        log.info("Reactivation OTP sent to {}", email);
+    }
+
+    @Override
+    public void reactivateWithOtp(String email, String otp) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if (user.isActive()) {
+            throw new CustomException("Account is already active", HttpStatus.BAD_REQUEST);
+        }
+
+        otpService.verifyOtp(email, otp);
+
+        user.setActive(true);
+        repository.save(user);
+        log.info("Account reactivated via OTP: userId={}", user.getId());
+        emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), true);
+    }
+
 
     @Override
     public void resetPassword(ResetPasswordRequest request){
@@ -253,8 +306,10 @@ public class AuthServiceImpl implements AuthService {
         }
         user.setActive(false);
         repository.save(user);
+        emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), false);
         log.info("User suspended by admin: userId={}", id);
     }
+
 
     @Override
     public void reactivateUser(Long id) {
@@ -264,7 +319,31 @@ public class AuthServiceImpl implements AuthService {
         }
         user.setActive(true);
         repository.save(user);
+        emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), true);
         log.info("User reactivated by admin: userId={}", id);
+    }
+
+
+    @Override
+    public void updateUserRole(Long id, ROLE role) {
+        User user = getUserById(id);
+        user.setRole(role);
+        repository.save(user);
+        log.info("User role updated by admin: userId={} newRole={}", id, role);
+    }
+
+    @Override
+    public com.flowBoard.auth_service.dto.AdminStatsResponse getAdminStats() {
+        long totalUsers = repository.count();
+        long activeToday = totalUsers; // Dummy for now, ideally track lastLoginAt
+        
+        // In a real microservice, we would fetch these from other services via Feign
+        return com.flowBoard.auth_service.dto.AdminStatsResponse.builder()
+                .totalUsers(totalUsers)
+                .activeUsersToday(activeToday)
+                .totalWorkspaces(12) // Dummy
+                .totalBoards(45)     // Dummy
+                .build();
     }
 
     // Permanent hard delete — case study §2.4
@@ -276,4 +355,4 @@ public class AuthServiceImpl implements AuthService {
         repository.deleteById(id);
         log.info("User permanently deleted by admin: userId={}", id);
     }
-}
+}

@@ -23,6 +23,11 @@ public interface AuthService {
     void sendForgotPasswordOtp(String email);
     void resetPassword(ResetPasswordRequest request);
 
+    //Account reactivation
+    void sendReactivationOtp(String email);
+    void reactivateWithOtp(String email, String otp);
+
+
     //Profile
     User getUserByEmail(String email);
     User getUserById(Long id);
@@ -36,7 +41,9 @@ public interface AuthService {
     //Admin operations - case study
     List<User> getAllUsers();
     List<User> getUsersByRole(ROLE role);
+    void updateUserRole(Long id, ROLE role);
     void suspendUser(Long id);
     void reactivateUser(Long id);
     void deleteUser(Long id);
+    com.flowBoard.auth_service.dto.AdminStatsResponse getAdminStats();
 }

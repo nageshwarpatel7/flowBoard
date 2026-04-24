@@ -47,6 +47,39 @@ public class EmailService {
         send(toEmail, subject, body);
     }
 
+    @Async
+    public void sendAccountStatusEmail(String toEmail, String fullName, boolean active) {
+        log.info("Sending account status email to: {} (active={})", toEmail, active);
+        String subject = active ? "FlowBoard — Account Reactivated" : "FlowBoard — Account Suspended";
+        String title = active ? "Account Reactivated" : "Account Suspended";
+        String statusText = active ? "active and you can now log in." : "suspended by an administrator.";
+        
+        String body = """
+                <div style="font-family: Arial, sans-serif; max-width: 480px; margin: auto; padding: 32px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                    <h2 style="color: #1a1a2e;">FlowBoard — %s</h2>
+                    <p style="color: #444; font-size: 15px;">Hello %s,</p>
+                    <p style="color: #444; font-size: 15px;">Your FlowBoard account has been %s</p>
+                    <p style="color: #888; font-size: 13px; margin-top: 24px;">If you have any questions, please contact our support team.</p>
+                </div>
+                """.formatted(title, fullName, statusText);
+        send(toEmail, subject, body);
+    }
+
+    @Async
+    public void sendReactivationOtp(String toEmail, String fullName, String otp) {
+        log.info("Sending reactivation OTP to: {}", toEmail);
+        String subject = "FlowBoard — Reactivate your account";
+        String body = buildOtpEmail(
+                "Account Reactivation",
+                "Hello " + fullName + ", use the OTP below to reactivate your suspended account.",
+                otp,
+                "This OTP expires in 10 minutes. If you did not request this, please contact support."
+        );
+        send(toEmail, subject, body);
+    }
+
+
+
     private void send(String to, String subject, String htmlBody) {
         try {
             log.info("Connecting to SMTP — from: {} to: {}", fromEmail, to);

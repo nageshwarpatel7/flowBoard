@@ -37,6 +37,13 @@ public class OtpService {
         emailService.sendForgotPasswordOtp(email, otp);
     }
 
+    public void sendReactivationOtp(String email, String fullName){
+        String otp = generateOtp();
+        otpStore.save(email, otp, expiryMinutes);
+        emailService.sendReactivationOtp(email, fullName, otp);
+    }
+
+
     public void verifyOtp(String email, String otp){
         if(!otpStore.verify(email, otp)){
             throw new CustomException("Invalid or expire OTP", HttpStatus.BAD_REQUEST);

@@ -9,22 +9,24 @@ public interface WorkspaceService {
 
     // workspace CRUD
     WorkspaceResponse createWorkspace(CreateWorkspaceRequest request, Long ownerId);
-    WorkspaceResponse getById(Long workspaceId, Long requesterId);
+    WorkspaceResponse getById(Long workspaceId, Long requesterId, String userRole);
     List<WorkspaceResponse> getByOwner(Long ownerId);
     List<WorkspaceResponse> getByMember(Long userId);
     List<WorkspaceResponse> getPublicWorkspaces();
-    WorkspaceResponse updateWorkspace(Long workspaceId, UpdateWorkspaceRequest request, Long requesterId);
-    void deleteWorkspace(Long workspaceId, Long requesterId);
+    List<WorkspaceResponse> getAllWorkspaces();
+    WorkspaceResponse updateWorkspace(Long workspaceId, UpdateWorkspaceRequest request, Long requesterId, String userRole);
+    void deleteWorkspace(Long workspaceId, Long requesterId, String userRole);
 
     // Member management
-    WorkspaceMember addMember(Long workspaceId, AddMemberRequest request, Long requesterId);
-    void removeMember(Long workspaceId, Long userId, Long requesterId);
-    void updateMemberRole(Long workspaceId,Long userId, UpdateMemberRoleRequest requesr, Long requesterId);
+    WorkspaceMember addMember(Long workspaceId, AddMemberRequest request, Long requesterId, String userRole);
+    void removeMember(Long workspaceId, Long userId, Long requesterId, String userRole);
+    void updateMemberRole(Long workspaceId,Long userId, UpdateMemberRoleRequest request, Long requesterId, String userRole);
     List<WorkspaceMember> getMembers(Long workspaceId);
 
-    void inviteMember(Long workspaceId, InviteMemberRequest request, Long requesterId);
+    void inviteMember(Long workspaceId, InviteMemberRequest request, Long requesterId, String userRole);
     void acceptInvitation(String token, Long userId);
-    void revokeInvitation(Long workspaceId, Long invitationId, Long requesterId);
+    void revokeInvitation(Long workspaceId, Long invitationId, Long requesterId, String userRole);
     List<com.flowboard.workspace_service.entity.WorkspaceInvitation>
-    getPendingInvitations(Long workspaceId, Long requesterId);
+    getPendingInvitations(Long workspaceId, Long requesterId, String userRole);
 }
+
