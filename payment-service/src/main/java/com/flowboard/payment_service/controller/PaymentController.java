@@ -4,16 +4,21 @@ import com.flowboard.payment_service.dto.*;
 import com.flowboard.payment_service.entity.PaymentRecord;
 import com.flowboard.payment_service.exception.CustomException;
 import com.flowboard.payment_service.service.PaymentService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/payments")
 @RequiredArgsConstructor
+@Slf4j
 public class PaymentController {
 
     private final PaymentService paymentService;
@@ -63,13 +68,33 @@ public class PaymentController {
 
     // ── Stripe Webhook (public — no JWT) ─────────────────────────────────────
 
+    /**
+     * FIX: Stripe webhook signature verification (HMAC-SHA256) requires the raw
+     * request bytes.  Spring's @RequestBody String decodes through Jackson which
+     * can modify whitespace and break the signature.
+     *
+     * We now read the raw InputStream bytes directly from HttpServletRequest and
+     * convert to String without any re-encoding.
+     *
+     * IMPORTANT: for this to work, Spring must NOT consume the body before we do.
+     * Ensure no @RequestBody filter or interceptor reads the stream upstream.
+     * If you have a logging filter that reads the body, wrap it with
+     * ContentCachingRequestWrapper.
+     */
     @PostMapping("/webhook")
     public ResponseEntity<String> handleWebhook(
-            @RequestBody String payload,
-            @RequestHeader("Stripe-Signature") String stripeSignature) {
+            HttpServletRequest httpRequest,
+            @RequestHeader("Stripe-Signature") String stripeSignature) throws IOException {
+
+        byte[] rawBytes = httpRequest.getInputStream().readAllBytes();
+        String payload = new String(rawBytes, StandardCharsets.UTF_8);
+
+        log.debug("Stripe webhook received — payload length={}", rawBytes.length);
         paymentService.handleWebhook(payload, stripeSignature);
         return ResponseEntity.ok("Webhook received");
     }
+
+    // ── Helper ────────────────────────────────────────────────────────────────
 
     private Long resolve(Long userId) {
         if (userId != null) return userId;

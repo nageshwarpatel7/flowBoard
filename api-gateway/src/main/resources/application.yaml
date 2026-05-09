@@ -7,7 +7,7 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:flowboard-redis}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:flowboard_redis_secret}
 
@@ -134,7 +134,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://eureka-server:8761/eureka/
   instance:
     prefer-ip-address: true
 
@@ -144,7 +144,7 @@ jwt:
 logging:
   level:
     org.springframework.cloud.gateway: INFO
-    com.flowBoard: DEBUG
+    com.flowboard: DEBUG
 
 management:
   endpoints:

@@ -2,14 +2,18 @@ package com.flowboard.card_service.dto;
 
 import com.flowboard.card_service.enums.CardStatus;
 import com.flowboard.card_service.enums.Priority;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CardResponse {
 
     private Long id;

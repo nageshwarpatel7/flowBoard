@@ -12,7 +12,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -23,88 +22,93 @@ public class DueDateScheduler {
     private final CardRepository cardRepository;
     private final NotificationClient notificationClient;
 
+    /** Runs every morning at 08:00 — notifies assignees whose card is due tomorrow. */
     @Scheduled(cron = "0 0 8 * * *")
-    public void notifyDueTomorrow(){
+    public void notifyDueTomorrow() {
         LocalDate tomorrow = LocalDate.now().plusDays(1);
 
         List<Card> cards = cardRepository.findByDueDateAndIsArchivedFalseAndStatusNot(
                 tomorrow, CardStatus.DONE
         );
 
-        log.info("[Schedular] Due-tomorrow check: {} cards due on {}", cards.size(), tomorrow);
+        // FIX: typo "Schedular" → "Scheduler" (affects log grep / monitoring queries)
+        log.info("[Scheduler] Due-tomorrow check: {} cards due on {}", cards.size(), tomorrow);
 
-        for(Card card: cards){
-            if(card.getAssigneeId()==null) continue;
+        for (Card card : cards) {
+            if (card.getAssigneeId() == null) continue;
 
-            try{
-                notificationClient.notifyDueDate(new NotifyDueDateRequest(card.getAssigneeId(),
+            try {
+                notificationClient.notifyDueDate(new NotifyDueDateRequest(
+                        card.getAssigneeId(),
                         card.getId(),
-                        card.getTitle(), "24 hours", null));
+                        card.getTitle(),
+                        "24 hours",
+                        null));
 
                 log.debug("Due-tomorrow notification sent for cardId={}", card.getId());
-            }catch (Exception e){
+            } catch (Exception e) {
                 log.error("Failed to notify due-date for cardId={}: {}", card.getId(), e.getMessage());
             }
         }
     }
 
-    @Scheduled(cron = "0 0 * * * *")
-    public void notifyDueInTwoHours(){
+    /**
+     * FIX: was "@Scheduled(cron = "0 0 * * * *")" (fires every hour) with an in-body
+     *      "if (currentHour != 22) return;" guard — fragile, timezone-sensitive, and wasteful.
+     *      Replaced with a direct cron that fires exactly at 22:00 server time.
+     *
+     * Notifies assignees whose card is due today (2-hour warning at 22:00).
+     */
+    @Scheduled(cron = "0 0 22 * * *")
+    public void notifyDueInTwoHours() {
         LocalDate today = LocalDate.now();
-        int currentHour = LocalDateTime.now().getHour();
-
-        if(currentHour!=22) return;
 
         List<Card> cards = cardRepository
-                .findByDueDateAndIsArchivedFalseAndStatusNot(
-                        today, CardStatus.DONE
-                );
+                .findByDueDateAndIsArchivedFalseAndStatusNot(today, CardStatus.DONE);
 
-        log.info("[Schedular] Due-today urgent check: {} cards", cards.size());
+        log.info("[Scheduler] Due-today urgent check: {} cards", cards.size());
 
-        for(Card card: cards){
+        for (Card card : cards) {
+            if (card.getAssigneeId() == null) continue;
 
-            if(card.getAssigneeId() == null) continue;
-
-            try{
+            try {
                 notificationClient.notifyDueDate(new NotifyDueDateRequest(
                         card.getAssigneeId(),
                         card.getId(),
                         card.getTitle(),
                         "2 hours",
-                        null
-                ));
-            }catch (Exception e){
+                        null));
+            } catch (Exception e) {
                 log.error("Failed urgent-due-date notification cardId={}: {}",
                         card.getId(), e.getMessage());
             }
         }
     }
 
+    /** Runs every morning at 09:00 — notifies assignees of all overdue cards. */
     @Scheduled(cron = "0 0 9 * * *")
-    public void notifyOverdueCards(){
+    public void notifyOverdueCards() {
 
         List<Card> overdueCards = cardRepository.findAllOverdueBeforeDate(LocalDate.now());
 
-        log.info("[Schedular] Overdue check: {} cards overdue", overdueCards.size());
+        log.info("[Scheduler] Overdue check: {} cards overdue", overdueCards.size());
 
-        for(Card card: overdueCards){
-            if(card.getAssigneeId()==null) continue;;
+        for (Card card : overdueCards) {
+            // FIX: removed stray double semicolon (;;) that was after this continue statement
+            if (card.getAssigneeId() == null) continue;
 
-            try{
+            try {
                 notificationClient.notifyOverdue(new NotifyOverdueRequest(
                         card.getAssigneeId(),
                         card.getId(),
                         card.getTitle(),
                         card.getDueDate().toString(),
-                        null
-                ));
+                        null));
 
                 log.debug("Overdue notification sent for cardId={}", card.getId());
-            }catch (Exception e){
+            } catch (Exception e) {
                 log.error("Failed overdue notification cardId={}: {}", card.getId(), e.getMessage());
             }
         }
-
     }
 }

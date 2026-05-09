@@ -6,7 +6,7 @@ spring:
     name: auth-service
 
   datasource:
-    url: jdbc:mysql://localhost:3306/flowboard_auth
+    url: jdbc:mysql://flowboard-mysql:3306/flowboard_auth
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:1234}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -42,7 +42,7 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
+      host: ${REDIS_HOST:flowboard-redis}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:flowboard_redis_secret}
       timeout: 3000ms
@@ -61,7 +61,7 @@ otp:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://eureka-server:8761/eureka/
   instance:
     prefer-ip-address: true
 

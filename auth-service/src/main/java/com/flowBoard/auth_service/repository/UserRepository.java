@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +28,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> searchByNameOrUsername(@Param("key") String key);
 
     void deleteById(Long id);
+
+    long countByLastLoginAtAfter(LocalDateTime startOfDay);
 }

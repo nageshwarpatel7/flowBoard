@@ -41,12 +41,14 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
             String path = request.getURI().getPath();
 
             // --- 2. Skip JWT check for public routes ---
+            // FIX: use prefix matching so paths like /api/v1/auth/login/ (trailing slash)
+            //      or sub-paths of an excluded prefix are correctly allowed through.
             if (isExcluded(path, config.getExcludedPaths())) {
-                log.debug("Public routes - skipping JWT: {}", path);
+                log.debug("Public route - skipping JWT: {}", path);
                 return chain.filter(exchange);
             }
 
-            //--- check Authorization header exists ---
+            // --- 3. Check Authorization header exists ---
             if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 log.warn("No Authorization header - blocking request to: {}", path);
                 return reject(exchange, "Authorization header is missing", HttpStatus.UNAUTHORIZED);
@@ -58,7 +60,7 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
                 return reject(exchange, "Invalid Authorization header format", HttpStatus.UNAUTHORIZED);
             }
 
-            // ---- validate the JWT -----
+            // --- 4. Validate the JWT ---
             String token = authHeader.substring(7);
 
             if (!jwtUtil.isTokenValid(token)) {
@@ -66,32 +68,35 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
                 return reject(exchange, "Invalid or expired token", HttpStatus.UNAUTHORIZED);
             }
 
-            // ---- extract claims and forward as headers ----
-            String email = jwtUtil.extractEmail(token);
-            Long userId = jwtUtil.extractUserId(token);
-            String role = jwtUtil.extractRole(token);
+            // --- 5. Extract claims and forward as headers ---
+            String email  = jwtUtil.extractEmail(token);
+            Long   userId = jwtUtil.extractUserId(token);
+            String role   = jwtUtil.extractRole(token);
 
-            log.debug("JWT valid -> email={} userId={} role={} path={}",
-                    email, userId, role, path);
-
+            log.debug("JWT valid -> email={} userId={} role={} path={}", email, userId, role, path);
 
             ServerHttpRequest mutatedRequest = request.mutate()
                     .header("X-User-Email", email)
-                    .header("X-User-Id", String.valueOf(userId))
-                    .header("X-User-Role", role)
-                    //.headers(h->h.remove(HttpHeaders.AUTHORIZATION))
+                    .header("X-User-Id",    String.valueOf(userId))
+                    .header("X-User-Role",  role)
                     .build();
 
-            log.debug("JWT valid — email={} userId={} path={}", email, userId, path);
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
         };
     }
 
+    /**
+     * FIX: exact equality replaced with prefix matching.
+     * An excluded path "/api/v1/auth/login" now also covers
+     * "/api/v1/auth/login/" and any further sub-path.
+     */
     private boolean isExcluded(String path, String excludedPaths) {
         if (excludedPaths == null || excludedPaths.isBlank()) return false;
         List<String> excluded = Arrays.stream(excludedPaths.split(","))
-                .map(String::trim).toList();
-        return excluded.stream().anyMatch(path::equals);
+                .map(String::trim)
+                .filter(e -> !e.isEmpty())
+                .toList();
+        return excluded.stream().anyMatch(e -> path.equals(e) || path.startsWith(e + "/"));
     }
 
     private Mono<Void> reject(ServerWebExchange exchange, String message, HttpStatus status) {
@@ -108,7 +113,7 @@ public class AuthFilter extends AbstractGatewayFilterFactory<AuthFilter.Config> 
 
     public static class Config {
         private String excludedPaths;
-        public String getExcludedPaths() { return excludedPaths; }
-        public void setExcludedPaths(String excludedPaths) { this.excludedPaths = excludedPaths; }
+        public String getExcludedPaths()                    { return excludedPaths; }
+        public void   setExcludedPaths(String excludedPaths) { this.excludedPaths = excludedPaths; }
     }
 }

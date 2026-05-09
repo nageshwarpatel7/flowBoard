@@ -27,4 +27,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     // Public boards across all workspaces
     List<Board> findByVisibility(Visibility visibility);
+
+    // Check if a board name already exists in a workspace
+    boolean existsByNameAndWorkspaceId(String name, Long workspaceId);
 }

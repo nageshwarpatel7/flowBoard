@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
 
-@Entity @Table(name = "plans")
+@Entity @Table(name = "subscription_plans")
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
 public class Plan {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)

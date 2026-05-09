@@ -1,7 +1,7 @@
 package com.flowBoard.auth_service.config;
 
 import com.flowBoard.auth_service.security.JwtFilter;
-import com.flowBoard.auth_service.security.OAuth2SucceessHandler;
+import com.flowBoard.auth_service.security.OAuth2SuccessHandler;
 import com.flowBoard.auth_service.service.OAuthUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +26,7 @@ public class SecurityConfig {
     private OAuthUserService oAuthUserService;
 
     @Autowired(required = false)
-    private OAuth2SucceessHandler oAuth2SucceessHandler;
+    private OAuth2SuccessHandler oAuth2SucceessHandler;
 
     @Autowired(required = false)
     private ClientRegistrationRepository clientRegistrationRepository;

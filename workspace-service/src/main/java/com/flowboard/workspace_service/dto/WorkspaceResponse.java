@@ -2,14 +2,18 @@ package com.flowboard.workspace_service.dto;
 
 import com.flowboard.workspace_service.enums.MemberRole;
 import com.flowboard.workspace_service.enums.Visibility;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class WorkspaceResponse {
     private Long id;
     private String name;

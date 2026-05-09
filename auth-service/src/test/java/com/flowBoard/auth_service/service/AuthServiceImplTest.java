@@ -7,6 +7,7 @@ import com.flowBoard.auth_service.exception.CustomException;
 import com.flowBoard.auth_service.repository.UserRepository;
 import com.flowBoard.auth_service.security.JwtUtil;
 import com.flowBoard.auth_service.security.OtpService;
+import com.flowBoard.auth_service.service.EmailService;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
@@ -32,6 +33,7 @@ class AuthServiceImplTest {
     @Mock JwtUtil             jwtUtil;
     @Mock OtpService          otpService;
     @Mock TokenBlacklistService blacklistService;
+    @Mock EmailService        emailService;
 
     @InjectMocks AuthServiceImpl authService;
 
@@ -239,13 +241,11 @@ class AuthServiceImplTest {
         verify(otpService).sendForgotPasswordOtp(verifiedUser.getEmail());
     }
 
-    @Test @DisplayName("sendForgotPasswordOtp – throws 403 for inactive user")
-    void forgotPassword_inactiveUser_throws() {
+    @Test @DisplayName("sendForgotPasswordOtp – allows inactive user for recovery")
+    void forgotPassword_inactiveUser_allowed() {
         when(repository.findByEmail(anyString())).thenReturn(Optional.of(inactiveUser));
-        assertThatThrownBy(() -> authService.sendForgotPasswordOtp(inactiveUser.getEmail()))
-                .isInstanceOf(CustomException.class)
-                .extracting(e -> ((CustomException)e).getStatus())
-                .isEqualTo(HttpStatus.FORBIDDEN);
+        authService.sendForgotPasswordOtp(inactiveUser.getEmail());
+        verify(otpService).sendForgotPasswordOtp(inactiveUser.getEmail());
     }
 
     @Test @DisplayName("resetPassword – verifies OTP and encodes new password")

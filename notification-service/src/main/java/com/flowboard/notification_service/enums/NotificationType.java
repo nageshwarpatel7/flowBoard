@@ -7,5 +7,6 @@ public enum NotificationType {
     COMMENT,
     MOVE,
     BROADCAST,
-    OVERDUE
+    OVERDUE,
+    INVITE
 }

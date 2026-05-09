@@ -49,32 +49,37 @@ public class User implements UserDetails {
     private String provider;
     private LocalDateTime createdAt;
 
+    // FIX: added lastLoginAt so getAdminStats() can count real active-today users
+    //      instead of returning totalUsers as a dummy value.
+    private LocalDateTime lastLoginAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-
-        return List.of(()->role.name());
+        return List.of(() -> role.name());
     }
 
     @Override
-    public String getUsername(){
+    public String getUsername() {
         return email;
     }
 
     @Override
-    public boolean isEnabled(){
+    public boolean isEnabled() {
         return active;
     }
 
     @Override
     public boolean isAccountNonExpired() {
-        return true; }
+        return true;
+    }
 
     @Override
     public boolean isAccountNonLocked() {
-        return active; }
+        return active;
+    }
 
     @Override
     public boolean isCredentialsNonExpired() {
-        return true; }
+        return true;
+    }
 }

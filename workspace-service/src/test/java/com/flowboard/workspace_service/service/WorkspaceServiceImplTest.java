@@ -109,7 +109,7 @@ class WorkspaceServiceImplTest {
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
         when(memberRepository.findByWorkspaceId(1L)).thenReturn(List.of(adminMember));
 
-        WorkspaceResponse response = workspaceService.getById(1L, 99L);
+        WorkspaceResponse response = workspaceService.getById(1L, 99L,"MEMBER");
         assertThat(response).isNotNull();
     }
 
@@ -118,7 +118,7 @@ class WorkspaceServiceImplTest {
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 99L)).thenReturn(false);
 
-        assertThatThrownBy(() -> workspaceService.getById(1L, 99L))
+        assertThatThrownBy(() -> workspaceService.getById(1L, 99L,"MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -130,14 +130,14 @@ class WorkspaceServiceImplTest {
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 1L)).thenReturn(true);
         when(memberRepository.findByWorkspaceId(1L)).thenReturn(List.of(adminMember));
 
-        WorkspaceResponse response = workspaceService.getById(1L, 1L);
+        WorkspaceResponse response = workspaceService.getById(1L, 1L, "MEMBER");
         assertThat(response).isNotNull();
     }
 
     @Test @DisplayName("getById – throws 404 when workspace not found")
     void getById_notFound_throws() {
         when(workspaceRepository.findById(999L)).thenReturn(Optional.empty());
-        assertThatThrownBy(() -> workspaceService.getById(999L, 1L))
+        assertThatThrownBy(() -> workspaceService.getById(999L, 1L,"MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -186,7 +186,7 @@ class WorkspaceServiceImplTest {
         when(workspaceRepository.save(any())).thenReturn(workspace);
         when(memberRepository.findByWorkspaceId(1L)).thenReturn(List.of(adminMember));
 
-        WorkspaceResponse response = workspaceService.updateWorkspace(1L, req, 1L);
+        WorkspaceResponse response = workspaceService.updateWorkspace(1L, req, 1L,"MEMBER");
         assertThat(response).isNotNull();
         verify(workspaceRepository).save(argThat(w -> "Updated".equals(w.getName())));
     }
@@ -199,7 +199,7 @@ class WorkspaceServiceImplTest {
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 2L)).thenReturn(Optional.of(regularMember));
 
-        assertThatThrownBy(() -> workspaceService.updateWorkspace(1L, req, 2L))
+        assertThatThrownBy(() -> workspaceService.updateWorkspace(1L, req, 2L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -210,14 +210,14 @@ class WorkspaceServiceImplTest {
     @Test @DisplayName("deleteWorkspace – owner can delete")
     void deleteWorkspace_owner_success() {
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
-        workspaceService.deleteWorkspace(1L, 1L);
+        workspaceService.deleteWorkspace(1L, 1L, "MEMBER");
         verify(workspaceRepository).delete(workspace);
     }
 
     @Test @DisplayName("deleteWorkspace – non-owner throws 403")
     void deleteWorkspace_nonOwner_throws() {
         when(workspaceRepository.findById(1L)).thenReturn(Optional.of(workspace));
-        assertThatThrownBy(() -> workspaceService.deleteWorkspace(1L, 99L))
+        assertThatThrownBy(() -> workspaceService.deleteWorkspace(1L, 99L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.FORBIDDEN);
@@ -236,7 +236,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 3L)).thenReturn(false);
         when(memberRepository.save(any())).thenReturn(regularMember);
 
-        workspaceService.addMember(1L, req, 1L);
+        workspaceService.addMember(1L, req, 1L, "MEMBER");
         verify(memberRepository).save(any());
     }
 
@@ -247,7 +247,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 1L)).thenReturn(true);
 
-        assertThatThrownBy(() -> workspaceService.addMember(1L, req, 1L))
+        assertThatThrownBy(() -> workspaceService.addMember(1L, req, 1L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("already a member");
     }
@@ -261,7 +261,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 5L)).thenReturn(false);
         when(memberRepository.save(any())).thenReturn(regularMember);
 
-        workspaceService.addMember(1L, req, 1L);
+        workspaceService.addMember(1L, req, 1L, "MEMBER");
         verify(memberRepository).save(argThat(m -> m.getRole() == MemberRole.MEMBER));
     }
 
@@ -273,7 +273,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 2L)).thenReturn(true);
 
-        workspaceService.removeMember(1L, 2L, 1L);
+        workspaceService.removeMember(1L, 2L, 1L, "MEMBER");
         verify(memberRepository).deleteByWorkspaceIdAndUserId(1L, 2L);
     }
 
@@ -284,7 +284,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 1L)).thenReturn(true);
 
         // workspace.ownerId = 1L, trying to remove userId = 1L
-        assertThatThrownBy(() -> workspaceService.removeMember(1L, 1L, 1L))
+        assertThatThrownBy(() -> workspaceService.removeMember(1L, 1L, 1L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("owner");
     }
@@ -295,7 +295,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(memberRepository.existsByWorkspaceIdAndUserId(1L, 99L)).thenReturn(false);
 
-        assertThatThrownBy(() -> workspaceService.removeMember(1L, 99L, 1L))
+        assertThatThrownBy(() -> workspaceService.removeMember(1L, 99L, 1L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -313,7 +313,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 2L)).thenReturn(Optional.of(regularMember));
         when(memberRepository.save(any())).thenReturn(regularMember);
 
-        workspaceService.updateMemberRole(1L, 2L, req, 1L);
+        workspaceService.updateMemberRole(1L, 2L, req, 1L, "MEMBER");
         assertThat(regularMember.getRole()).isEqualTo(MemberRole.ADMIN);
     }
 
@@ -326,7 +326,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> workspaceService.updateMemberRole(1L, 99L, req, 1L))
+        assertThatThrownBy(() -> workspaceService.updateMemberRole(1L, 99L, req, 1L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.NOT_FOUND);
@@ -356,7 +356,7 @@ class WorkspaceServiceImplTest {
                 1L, "new@example.com", "PENDING")).thenReturn(false);
         when(invitationRepository.save(any())).thenReturn(new WorkspaceInvitation());
 
-        workspaceService.inviteMember(1L, req, 1L);
+        workspaceService.inviteMember(1L, req, 1L, "MEMBER");
         verify(invitationRepository).save(any());
         verify(rabbitTemplate).convertAndSend(anyString(), anyString(), any(Object.class));
     }
@@ -371,7 +371,7 @@ class WorkspaceServiceImplTest {
         when(invitationRepository.existsByWorkspaceIdAndInviteeEmailAndStatus(
                 1L, "dup@example.com", "PENDING")).thenReturn(true);
 
-        assertThatThrownBy(() -> workspaceService.inviteMember(1L, req, 1L))
+        assertThatThrownBy(() -> workspaceService.inviteMember(1L, req, 1L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .hasMessageContaining("pending invitation");
     }
@@ -441,7 +441,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(invitationRepository.findById(1L)).thenReturn(Optional.of(inv));
 
-        workspaceService.revokeInvitation(1L, 1L, 1L);
+        workspaceService.revokeInvitation(1L, 1L, 1L, "MEMBER");
         assertThat(inv.getStatus()).isEqualTo("REVOKED");
     }
 
@@ -453,7 +453,7 @@ class WorkspaceServiceImplTest {
         when(memberRepository.findByWorkspaceIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
         when(invitationRepository.findById(2L)).thenReturn(Optional.of(inv));
 
-        assertThatThrownBy(() -> workspaceService.revokeInvitation(1L, 2L, 1L))
+        assertThatThrownBy(() -> workspaceService.revokeInvitation(1L, 2L, 1L, "MEMBER"))
                 .isInstanceOf(CustomException.class)
                 .extracting(e -> ((CustomException) e).getStatus())
                 .isEqualTo(HttpStatus.BAD_REQUEST);

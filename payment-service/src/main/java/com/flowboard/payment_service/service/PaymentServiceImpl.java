@@ -23,9 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 
 @Service
@@ -43,9 +41,13 @@ public class PaymentServiceImpl implements PaymentService {
     @Value("${stripe.webhook-secret}")
     private String webhookSecret;
 
-    // Frontend URLs for Stripe redirect
-    private static final String SUCCESS_URL = "http://localhost:4200/payment/success?session_id={CHECKOUT_SESSION_ID}";
-    private static final String CANCEL_URL  = "http://localhost:4200/payment/cancel";
+    // FIX: hardcoded localhost URLs replaced with @Value-injected properties.
+    //      Defaults to localhost for local dev; override via env vars in production.
+    @Value("${payment.success-url:http://localhost:4200/payment/success?session_id={CHECKOUT_SESSION_ID}}")
+    private String successUrl;
+
+    @Value("${payment.cancel-url:http://localhost:4200/payment/cancel}")
+    private String cancelUrl;
 
     @PostConstruct
     public void init() {
@@ -73,7 +75,6 @@ public class PaymentServiceImpl implements PaymentService {
         Plan plan = planRepository.findById(request.getPlanId())
                 .orElseThrow(() -> new CustomException("Plan not found", HttpStatus.NOT_FOUND));
 
-        // Get or create Stripe customer
         Subscription existing = subscriptionRepository.findByUserId(userId).orElse(null);
         String customerId = (existing != null) ? existing.getStripeCustomerId() : null;
 
@@ -90,22 +91,22 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             SessionCreateParams.Builder params = SessionCreateParams.builder()
                     .setMode(SessionCreateParams.Mode.SUBSCRIPTION)
-                    .setSuccessUrl(SUCCESS_URL)
-                    .setCancelUrl(CANCEL_URL)
+                    // FIX: uses injected successUrl / cancelUrl instead of hardcoded literals
+                    .setSuccessUrl(successUrl)
+                    .setCancelUrl(cancelUrl)
                     .addLineItem(SessionCreateParams.LineItem.builder()
                             .setPrice(priceId)
                             .setQuantity(1L)
                             .build())
-                    .putMetadata("userId",      String.valueOf(userId))
-                    .putMetadata("planId",      String.valueOf(plan.getId()))
-                    .putMetadata("billingCycle", request.getBillingCycle());
+                    .putMetadata("userId",       String.valueOf(userId))
+                    .putMetadata("planId",        String.valueOf(plan.getId()))
+                    .putMetadata("billingCycle",  request.getBillingCycle());
 
             if (customerId != null) {
                 params.setCustomer(customerId);
             }
 
             Session session = Session.create(params.build());
-
             log.info("Checkout session created: {} for userId={}", session.getId(), userId);
 
             return CheckoutSessionResponse.builder()
@@ -115,7 +116,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         } catch (StripeException e) {
             log.error("Stripe checkout session failed: {}", e.getMessage());
-            throw new CustomException("Payment gateway error: " + e.getMessage(),
+            throw new CustomException(
+                    "Payment gateway error: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -125,9 +127,11 @@ public class PaymentServiceImpl implements PaymentService {
     public void handleWebhook(String payload, String stripeSignature) {
         Event event;
         try {
+            // NOTE: payload must be the RAW bytes-as-string from HttpServletRequest,
+            //       not re-encoded via Spring's @RequestBody.  See PaymentController.
             event = Webhook.constructEvent(payload, stripeSignature, webhookSecret);
         } catch (SignatureVerificationException e) {
-            log.error("Invalid Stripe webhook signature");
+            log.error("Invalid Stripe webhook signature: {}", e.getMessage());
             throw new CustomException("Invalid webhook signature", HttpStatus.BAD_REQUEST);
         }
 
@@ -170,13 +174,13 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public void cancelSubscription(Long userId) {
         Subscription sub = subscriptionRepository.findByUserId(userId)
-                .orElseThrow(() -> new CustomException("No subscription found", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new CustomException(
+                        "No subscription found", HttpStatus.NOT_FOUND));
 
         if (sub.getStripeSubscriptionId() != null) {
             try {
                 com.stripe.model.Subscription stripeSub =
                         com.stripe.model.Subscription.retrieve(sub.getStripeSubscriptionId());
-                // Cancel at period end — user keeps access until billing period ends
                 stripeSub.update(SubscriptionUpdateParams.builder()
                         .setCancelAtPeriodEnd(true).build());
             } catch (StripeException e) {
@@ -228,7 +232,8 @@ public class PaymentServiceImpl implements PaymentService {
         sub.setStripeCustomerId(session.getCustomer());
         sub.setStripeSubscriptionId(session.getSubscription());
         sub.setCurrentPeriodStart(now);
-        sub.setCurrentPeriodEnd("YEARLY".equals(cycle) ? now.plusYears(1) : now.plusMonths(1));
+        sub.setCurrentPeriodEnd(
+                "YEARLY".equals(cycle) ? now.plusYears(1) : now.plusMonths(1));
 
         subscriptionRepository.save(sub);
         log.info("Subscription activated: userId={} plan={}", userId, plan.getName());
@@ -254,7 +259,8 @@ public class PaymentServiceImpl implements PaymentService {
                     PaymentRecord record = PaymentRecord.builder()
                             .userId(sub.getUserId())
                             .stripePaymentIntentId(invoice.getPaymentIntent())
-                            .amount(BigDecimal.valueOf(invoice.getAmountPaid()).divide(BigDecimal.valueOf(100)))
+                            .amount(BigDecimal.valueOf(invoice.getAmountPaid())
+                                    .divide(BigDecimal.valueOf(100)))
                             .currency(invoice.getCurrency().toUpperCase())
                             .status(status)
                             .description("Invoice " + invoice.getId())
@@ -284,7 +290,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new CustomException(
                         "FREE plan not seeded", HttpStatus.INTERNAL_SERVER_ERROR));
         Subscription sub = Subscription.builder()
-                .userId(userId).plan(freePlan).status("ACTIVE")
+                .userId(userId)
+                .plan(freePlan)
+                .status("ACTIVE")
                 .billingCycle("MONTHLY")
                 .currentPeriodStart(LocalDate.now())
                 .currentPeriodEnd(LocalDate.now().plusYears(100))

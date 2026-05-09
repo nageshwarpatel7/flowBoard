@@ -6,7 +6,7 @@ spring:
     name: notification-service
 
   datasource:
-    url: jdbc:mysql://localhost:3306/flowboard_notification
+    url: jdbc:mysql://flowboard-mysql:3306/flowboard_notification
     username: root
     password: 1234
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -42,7 +42,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: http://eureka-server:8761/eureka/
   instance:
     prefer-ip-address: true
 

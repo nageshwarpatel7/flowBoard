@@ -42,4 +42,10 @@ public interface ListRepository extends JpaRepository<TaskList, Long> {
                             @Param("fromPosition") int fromPosition);
 
     boolean existsByBoardIdAndPositionAndIsArchivedFalse( Long boardId, int position);
+
+    // All lists for a board ordered by position (includes archived)
+    List<TaskList> findByBoardIdOrderByPosition(Long boardId);
+
+    // Count total lists in a board
+    long countByBoardId(Long boardId);
 }

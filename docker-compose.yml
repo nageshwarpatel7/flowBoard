@@ -1,25 +1,7 @@
-version: '3.9'
 
 services:
 
   # ── Infrastructure ──────────────────────────────────────────────────────────
-
-  mysql:
-    image: mysql:8.2
-    container_name: flowboard-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: "1234"
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD","mysqladmin","ping","-h","localhost","-uroot","-p1234"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
 
   redis:
     image: redis:7.2-alpine
@@ -43,8 +25,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: flowboard
-      RABBITMQ_DEFAULT_PASS: flowboard_secret
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -81,18 +63,19 @@ services:
     ports:
       - "8081:8081"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_auth
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_auth
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: flowboard_redis_secret
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
-      GMAIL_USERNAME: nageshwarpatel660@gmail.com
-      GMAIL_PASSWORD: tvrjwsrefyidtdns
+      JWT_SECRET: ${JWT_SECRET}
+      GMAIL_USERNAME: ${GMAIL_USERNAME}
+      GMAIL_PASSWORD: ${GMAIL_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     depends_on:
-      mysql: {condition: service_healthy}
       redis: {condition: service_healthy}
       eureka-server: {condition: service_healthy}
 
@@ -102,16 +85,15 @@ services:
     ports:
       - "8082:8082"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_workspace
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_workspace
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: flowboard
-      SPRING_RABBITMQ_PASSWORD: flowboard_secret
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
-      mysql: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
       eureka-server: {condition: service_healthy}
 
@@ -121,12 +103,11 @@ services:
     ports:
       - "8083:8083"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_board
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_board
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
-      mysql: {condition: service_healthy}
       eureka-server: {condition: service_healthy}
 
   list-service:
@@ -135,12 +116,11 @@ services:
     ports:
       - "8084:8084"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_list
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_list
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
-      mysql: {condition: service_healthy}
       eureka-server: {condition: service_healthy}
 
   card-service:
@@ -149,16 +129,15 @@ services:
     ports:
       - "8085:8085"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_card
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_card
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: flowboard
-      SPRING_RABBITMQ_PASSWORD: flowboard_secret
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
-      mysql: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
       eureka-server: {condition: service_healthy}
 
@@ -168,18 +147,17 @@ services:
     ports:
       - "8086:8086"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_notification
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_notification
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_PORT: 5672
-      SPRING_RABBITMQ_USERNAME: flowboard
-      SPRING_RABBITMQ_PASSWORD: flowboard_secret
-      MAIL_USERNAME: nageshwarpatel660@gmail.com
-      MAIL_PASSWORD: tvrjwsrefyidtdns
+      SPRING_RABBITMQ_USERNAME: guest
+      SPRING_RABBITMQ_PASSWORD: guest
+      SPRING_MAIL_USERNAME: ${GMAIL_USERNAME}
+      SPRING_MAIL_PASSWORD: ${GMAIL_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
     depends_on:
-      mysql: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
       eureka-server: {condition: service_healthy}
 
@@ -190,7 +168,7 @@ services:
       - "8080:8080"
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      JWT_SECRET: qwertyuiopdfasdfghjkklzxcvbnmqwertyuil
+      JWT_SECRET: ${JWT_SECRET}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: flowboard_redis_secret
@@ -204,18 +182,16 @@ services:
     ports:
       - "8088:8088"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/flowboard_payment
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: "1234"
+      SPRING_DATASOURCE_URL: jdbc:mysql://host.docker.internal:3306/flowboard_payment
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
-      STRIPE_SECRET_KEY: sk_test_YOUR_KEY
-      STRIPE_WEBHOOK_SECRET: whsec_YOUR_WEBHOOK_SECRET
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
     depends_on:
-      mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
 
 volumes:
-  mysql_data:
   redis_data:
   rabbitmq_data:
   sonar_data:
