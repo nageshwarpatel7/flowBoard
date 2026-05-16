@@ -428,5 +428,73 @@ class AuthServiceImplTest {
             List<User> result = authService.getUsersByRole(ROLE.MEMBER);
             assertThat(result).hasSize(1).first().extracting(User::getRole).isEqualTo(ROLE.MEMBER);
         }
+
+        @Test @DisplayName("updateUserRole – updates role")
+        void updateUserRole_success() {
+            when(repository.findById(1L)).thenReturn(Optional.of(verifiedUser));
+            authService.updateUserRole(1L, ROLE.PLATFORM_ADMIN);
+            assertThat(verifiedUser.getRole()).isEqualTo(ROLE.PLATFORM_ADMIN);
+            verify(repository).save(verifiedUser);
+        }
+
+        @Test @DisplayName("getAdminStats – returns stats")
+        void getAdminStats_success() {
+            when(repository.count()).thenReturn(10L);
+            when(repository.countByLastLoginAtAfter(any())).thenReturn(5L);
+            
+            AdminStatsResponse stats = authService.getAdminStats();
+            assertThat(stats.getTotalUsers()).isEqualTo(10L);
+            assertThat(stats.getActiveUsersToday()).isEqualTo(5L);
+        }
+    }
+
+    @Test @DisplayName("sendReactivationOtp – sends OTP for inactive user")
+    void sendReactivationOtp_success() {
+        when(repository.findByEmail(anyString())).thenReturn(Optional.of(inactiveUser));
+        authService.sendReactivationOtp(inactiveUser.getEmail());
+        verify(otpService).sendReactivationOtp(inactiveUser.getEmail(), inactiveUser.getFullName());
+    }
+
+    @Test @DisplayName("sendReactivationOtp – throws 400 for active user")
+    void sendReactivationOtp_activeUser_throws() {
+        when(repository.findByEmail(anyString())).thenReturn(Optional.of(verifiedUser));
+        assertThatThrownBy(() -> authService.sendReactivationOtp(verifiedUser.getEmail()))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test @DisplayName("reactivateWithOtp – activates account")
+    void reactivateWithOtp_success() {
+        when(repository.findByEmail(anyString())).thenReturn(Optional.of(inactiveUser));
+        authService.reactivateWithOtp(inactiveUser.getEmail(), "123");
+        assertThat(inactiveUser.isActive()).isTrue();
+        verify(otpService).verifyOtp(anyString(), anyString());
+    }
+
+    @Test @DisplayName("reactivateWithOtp – throws 400 if already active")
+    void reactivateWithOtp_activeUser_throws() {
+        when(repository.findByEmail(anyString())).thenReturn(Optional.of(verifiedUser));
+        assertThatThrownBy(() -> authService.reactivateWithOtp(verifiedUser.getEmail(), "123"))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test @DisplayName("getUserByEmail – success")
+    void getUserByEmail_success() {
+        when(repository.findByEmail(anyString())).thenReturn(Optional.of(verifiedUser));
+        User user = authService.getUserByEmail(verifiedUser.getEmail());
+        assertThat(user.getEmail()).isEqualTo(verifiedUser.getEmail());
+    }
+
+    @Test @DisplayName("validateToken – success")
+    void validateToken_success() {
+        when(jwtUtil.extractEmail(anyString())).thenReturn(verifiedUser.getEmail());
+        String msg = authService.validateToken("token");
+        assertThat(msg).contains(verifiedUser.getEmail());
+    }
+
+    @Test @DisplayName("validateToken – failure")
+    void validateToken_failure() {
+        when(jwtUtil.extractEmail(anyString())).thenThrow(new RuntimeException("invalid"));
+        assertThatThrownBy(() -> authService.validateToken("bad"))
+                .isInstanceOf(CustomException.class);
     }
 }

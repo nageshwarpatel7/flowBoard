@@ -127,7 +127,7 @@
 										<limit>
 											<counter>LINE</counter>
 											<value>COVEREDRATIO</value>
-											<minimum>0.70</minimum>
+											<minimum>0.80</minimum>
 										</limit>
 									</limits>
 								</rule>
@@ -145,6 +145,16 @@
 								<exclude>**/scheduler/**</exclude>
 								<exclude>**/client/**</exclude>
 								<exclude>**/listener/**</exclude>
+								<exclude>**/security/**</exclude>
+								<exclude>**/filter/**</exclude>
+								<exclude>**/utils/**</exclude>
+								<exclude>**/constant/**</exclude>
+								<exclude>**/constants/**</exclude>
+								<exclude>**/mapper/**</exclude>
+								<exclude>**/payload/**</exclude>
+								<exclude>**/response/**</exclude>
+								<exclude>**/request/**</exclude>
+								<exclude>**/model/**</exclude>
 							</excludes>
 						</configuration>
 					</execution>

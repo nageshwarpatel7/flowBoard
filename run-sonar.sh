@@ -1,5 +1,5 @@
 #!/bin/bash
-TOKEN="squ_adab6eaf83f6a716d04eb80739f41a6e7f2ae8da"
+TOKEN="squ_fed26b1c73372fc47e3cceb4c4143fb745df21ec"
 SONAR_URL="http://localhost:9000"
 SERVICES=(auth-service workspace-service board-service list-service card-service notification-service payment-service)
 

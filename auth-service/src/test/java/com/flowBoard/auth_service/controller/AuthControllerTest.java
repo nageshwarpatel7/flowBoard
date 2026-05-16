@@ -274,6 +274,18 @@ class AuthControllerTest {
                 .andExpect(status().isOk());
     }
 
+    // ── POST /reactivate-verify ───────────────────────────────────────────────
+    @Test @DisplayName("POST /reactivate-verify → 200")
+    void reactivateVerify_200() throws Exception {
+        VerifyOtpRequest req = new VerifyOtpRequest(); req.setEmail("n@g.com"); req.setOtp("123456");
+        doNothing().when(authService).reactivateWithOtp(anyString(), anyString());
+
+        mvc.perform(post(BASE + "/reactivate-verify").with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Account successfully reactivated. You can now log in."));
+    }
+
     // ── ADMIN ENDPOINTS ───────────────────────────────────────────────────────
     @Test @WithMockUser(authorities = "PLATFORM_ADMIN")
     @DisplayName("GET /admin/users → 200 for admin")

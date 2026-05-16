@@ -117,4 +117,104 @@ class NotificationServiceImplTest {
 
         assertThat(count).isEqualTo(7L);
     }
+
+    @Test @DisplayName("getByRecipient() — success")
+    void getByRecipient_success() {
+        when(repository.findByRecipientIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(sampleNotif));
+        List<NotificationResponse> list = notificationService.getByRecipient(1L);
+        assertThat(list).hasSize(1);
+    }
+
+    @Test @DisplayName("getUnreadByRecipient() — success")
+    void getUnreadByRecipient_success() {
+        when(repository.findByRecipientIdAndIsReadFalseOrderByCreatedAtDesc(1L)).thenReturn(List.of(sampleNotif));
+        List<NotificationResponse> list = notificationService.getUnreadByRecipient(1L);
+        assertThat(list).hasSize(1);
+    }
+
+    @Test @DisplayName("getByRecipientAndType() — success")
+    void getByRecipientAndType_success() {
+        when(repository.findByRecipientIdAndTypeOrderByCreatedAtDesc(1L, NotificationType.ASSIGNMENT)).thenReturn(List.of(sampleNotif));
+        List<NotificationResponse> list = notificationService.getByRecipientAndType(1L, NotificationType.ASSIGNMENT);
+        assertThat(list).hasSize(1);
+    }
+
+    @Test @DisplayName("getAll() — success")
+    void getAll_success() {
+        when(repository.findAll()).thenReturn(List.of(sampleNotif));
+        List<NotificationResponse> list = notificationService.getAll();
+        assertThat(list).hasSize(1);
+    }
+
+    @Test @DisplayName("markAllAsRead() — calls repository")
+    void markAllAsRead_success() {
+        doNothing().when(repository).markAllAsRead(1L);
+        notificationService.markAllAsRead(1L);
+        verify(repository).markAllAsRead(1L);
+    }
+
+    @Test @DisplayName("deleteNotification() — success")
+    void deleteNotification_success() {
+        when(repository.existsByIdAndRecipientId(1L, 1L)).thenReturn(true);
+        notificationService.deleteNotification(1L, 1L);
+        verify(repository).deleteById(1L);
+    }
+
+    @Test @DisplayName("deleteNotification() — throws 404")
+    void deleteNotification_throws() {
+        when(repository.existsByIdAndRecipientId(1L, 1L)).thenReturn(false);
+        assertThatThrownBy(() -> notificationService.deleteNotification(1L, 1L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test @DisplayName("deleteReadNotifications() — calls repository")
+    void deleteReadNotifications_success() {
+        doNothing().when(repository).deleteReadByRecipientId(1L);
+        notificationService.deleteReadNotifications(1L);
+        verify(repository).deleteReadByRecipientId(1L);
+    }
+
+    @Test @DisplayName("notifyAssignment() — triggers email")
+    void notifyAssignment_success() {
+        when(repository.save(any())).thenReturn(sampleNotif);
+        notificationService.notifyAssignment(1L, 2L, 3L, "Task", "user@email.com");
+        verify(repository).save(any());
+        verify(emailService).sendNotificationEmail(eq("user@email.com"), anyString(), anyString(), anyString());
+    }
+
+    @Test @DisplayName("notifyMention() — success")
+    void notifyMention_success() {
+        when(repository.save(any())).thenReturn(sampleNotif);
+        notificationService.notifyMention(1L, 2L, 3L, "Task");
+        verify(repository).save(any());
+    }
+
+    @Test @DisplayName("notifyDueDateApproaching() — success")
+    void notifyDueDateApproaching_success() {
+        when(repository.save(any())).thenReturn(sampleNotif);
+        notificationService.notifyDueDateApproaching(1L, 3L, "Task", "1 hour");
+        verify(repository).save(any());
+    }
+
+    @Test @DisplayName("notifyCardMovedToDone() — success")
+    void notifyCardMovedToDone_success() {
+        when(repository.save(any())).thenReturn(sampleNotif);
+        notificationService.notifyCardMovedToDone(1L, 2L, 3L, "Task");
+        verify(repository).save(any());
+    }
+
+    @Test @DisplayName("notifyCommentReply() — success")
+    void notifyCommentReply_success() {
+        when(repository.save(any())).thenReturn(sampleNotif);
+        notificationService.notifyCommentReply(1L, 2L, 3L, "Task");
+        verify(repository).save(any());
+    }
+
+    @Test @DisplayName("notifyOverdue() — triggers email")
+    void notifyOverdue_success() {
+        when(repository.save(any())).thenReturn(sampleNotif);
+        notificationService.notifyOverdue(1L, 3L, "Task", "Yesterday", "user@email.com");
+        verify(repository).save(any());
+        verify(emailService).sendNotificationEmail(eq("user@email.com"), anyString(), anyString(), anyString());
+    }
 }

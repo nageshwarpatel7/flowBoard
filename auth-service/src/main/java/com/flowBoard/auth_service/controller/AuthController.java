@@ -197,9 +197,8 @@ public class AuthController {
 
     @PostMapping("/reactivate-verify")
     public ResponseEntity<String> reactivateAccount(
-            @RequestParam String email,
-            @RequestParam String otp) {
-        authService.reactivateWithOtp(email, otp);
+            @Valid @RequestBody VerifyOtpRequest request) {
+        authService.reactivateWithOtp(request.getEmail(), request.getOtp());
         return ResponseEntity.ok("Account successfully reactivated. You can now log in.");
     }
 

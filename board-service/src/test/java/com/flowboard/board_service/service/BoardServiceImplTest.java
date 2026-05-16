@@ -224,4 +224,160 @@ class BoardServiceImplTest {
         assertThat(analytics.getMemberCount()).isEqualTo(1);
         assertThat(analytics.getObserverCount()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("getBoardsByWorkspace should return boards user can see")
+    void getBoardsByWorkspace_success() {
+        Board publicBoard = Board.builder().id(3L).workspaceId(10L).visibility(Visibility.PUBLIC).build();
+        when(boardRepository.findByWorkspaceId(10L)).thenReturn(List.of(openBoard, publicBoard));
+        when(memberRepository.existsByBoardIdAndUserId(1L, 1L)).thenReturn(true);
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        List<BoardResponse> boards = boardService.getBoardsByWorkspace(10L, 1L);
+
+        assertThat(boards).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("getBoardsByMember should return boards")
+    void getBoardsByMember_success() {
+        when(boardRepository.findByMemberUserId(1L)).thenReturn(List.of(openBoard));
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        List<BoardResponse> boards = boardService.getBoardsByMember(1L);
+
+        assertThat(boards).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getBoardsByCreator should return boards")
+    void getBoardsByCreator_success() {
+        when(boardRepository.findByCreatedById(1L)).thenReturn(List.of(openBoard));
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        List<BoardResponse> boards = boardService.getBoardsByCreator(1L);
+
+        assertThat(boards).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getPublicBoards should return public boards")
+    void getPublicBoards_success() {
+        when(boardRepository.findByVisibility(Visibility.PUBLIC)).thenReturn(List.of(openBoard));
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        List<BoardResponse> boards = boardService.getPublicBoards();
+
+        assertThat(boards).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("getClosedBoards should return closed boards")
+    void getClosedBoards_success() {
+        when(boardRepository.findByWorkspaceIdAndIsClosed(10L, true)).thenReturn(List.of(closedBoard));
+        when(memberRepository.existsByBoardIdAndUserId(2L, 1L)).thenReturn(true);
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        List<BoardResponse> boards = boardService.getClosedBoards(10L, 1L);
+
+        assertThat(boards).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("updateBoard should update details")
+    void updateBoard_success() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(openBoard));
+        when(memberRepository.findByBoardIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
+        when(boardRepository.save(any())).thenReturn(openBoard);
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        UpdateBoardRequest req = new UpdateBoardRequest();
+        req.setName("New Name");
+
+        BoardResponse res = boardService.updateBoard(1L, req, 1L);
+
+        assertThat(res.getName()).isEqualTo("New Name");
+    }
+
+    @Test
+    @DisplayName("updateBoard should throw 400 if closed")
+    void updateBoard_closed_throws() {
+        when(boardRepository.findById(2L)).thenReturn(Optional.of(closedBoard));
+        when(memberRepository.findByBoardIdAndUserId(2L, 1L)).thenReturn(Optional.of(adminMember));
+
+        UpdateBoardRequest req = new UpdateBoardRequest();
+        assertThatThrownBy(() -> boardService.updateBoard(2L, req, 1L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("reopenBoard should reopen")
+    void reopenBoard_success() {
+        when(boardRepository.findById(2L)).thenReturn(Optional.of(closedBoard));
+        when(memberRepository.findByBoardIdAndUserId(2L, 1L)).thenReturn(Optional.of(adminMember));
+        when(boardRepository.save(any())).thenReturn(closedBoard);
+        when(memberRepository.findByBoardId(any())).thenReturn(List.of());
+
+        BoardResponse res = boardService.reopenBoard(2L, 1L);
+
+        assertThat(res.isClosed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("reopenBoard should throw 400 if already open")
+    void reopenBoard_alreadyOpen_throws() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(openBoard));
+        when(memberRepository.findByBoardIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
+
+        assertThatThrownBy(() -> boardService.reopenBoard(1L, 1L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("removeMember should delete member")
+    void removeMember_success() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(openBoard));
+        when(memberRepository.findByBoardIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
+        when(memberRepository.existsByBoardIdAndUserId(1L, 2L)).thenReturn(true);
+
+        boardService.removeMember(1L, 2L, 1L);
+
+        verify(memberRepository).deleteByBoardIdAndUserId(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("removeMember should throw 400 if removing creator")
+    void removeMember_creator_throws() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(openBoard));
+        when(memberRepository.findByBoardIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
+
+        assertThatThrownBy(() -> boardService.removeMember(1L, 1L, 1L))
+                .isInstanceOf(CustomException.class);
+    }
+
+    @Test
+    @DisplayName("updateMemberRole should update role")
+    void updateMemberRole_success() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(openBoard));
+        when(memberRepository.findByBoardIdAndUserId(1L, 1L)).thenReturn(Optional.of(adminMember));
+        when(memberRepository.findByBoardIdAndUserId(1L, 2L)).thenReturn(Optional.of(regularMember));
+
+        UpdateBoardMemberRoleRequest req = new UpdateBoardMemberRoleRequest();
+        req.setRole(BoardMemberRole.ADMIN);
+
+        boardService.updateMemberRole(1L, 2L, req, 1L);
+
+        verify(memberRepository).save(argThat(m -> m.getRole() == BoardMemberRole.ADMIN));
+    }
+
+    @Test
+    @DisplayName("getMembers should return members")
+    void getMembers_success() {
+        when(boardRepository.findById(1L)).thenReturn(Optional.of(openBoard));
+        when(memberRepository.findByBoardId(1L)).thenReturn(List.of(adminMember, regularMember));
+
+        List<BoardMember> members = boardService.getMembers(1L);
+
+        assertThat(members).hasSize(2);
+    }
 }
