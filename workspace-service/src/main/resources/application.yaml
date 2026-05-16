@@ -67,3 +67,7 @@ springdoc:
 
 frontend:
   base-url: ${FRONTEND_BASE_URL:http://localhost:4200}
+
+auth:
+  service:
+    base-url: ${AUTH_SERVICE_BASE_URL:http://auth-service:8081/api/v1/auth}

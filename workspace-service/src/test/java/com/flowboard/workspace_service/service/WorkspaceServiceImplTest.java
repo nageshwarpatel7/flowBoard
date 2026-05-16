@@ -1,6 +1,7 @@
 package com.flowboard.workspace_service.service;
 
 import com.flowboard.workspace_service.dto.*;
+import com.flowboard.workspace_service.client.AuthUserClient;
 import com.flowboard.workspace_service.entity.*;
 import com.flowboard.workspace_service.enums.MemberRole;
 import com.flowboard.workspace_service.enums.Visibility;
@@ -29,6 +30,7 @@ class WorkspaceServiceImplTest {
     @Mock WorkspaceMemberRepository memberRepository;
     @Mock WorkspaceInvitationRepository invitationRepository;
     @Mock RabbitTemplate            rabbitTemplate;
+    @Mock AuthUserClient            authUserClient;
 
     @InjectMocks WorkspaceServiceImpl workspaceService;
 
@@ -38,6 +40,9 @@ class WorkspaceServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(authUserClient.findUserIdByEmail(anyString()))
+                .thenReturn(Optional.empty());
+
         workspace = Workspace.builder()
                 .id(1L).name("Dev Team").ownerId(1L)
                 .visibility(Visibility.PRIVATE)

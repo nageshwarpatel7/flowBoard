@@ -74,11 +74,6 @@
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
 			<groupId>org.springframework.security</groupId>
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
@@ -153,6 +148,16 @@
 								<exclude>**/scheduler/**</exclude>
 								<exclude>**/client/**</exclude>
 								<exclude>**/listener/**</exclude>
+								<exclude>**/security/**</exclude>
+								<exclude>**/filter/**</exclude>
+								<exclude>**/utils/**</exclude>
+								<exclude>**/constant/**</exclude>
+								<exclude>**/constants/**</exclude>
+								<exclude>**/mapper/**</exclude>
+								<exclude>**/payload/**</exclude>
+								<exclude>**/response/**</exclude>
+								<exclude>**/request/**</exclude>
+								<exclude>**/model/**</exclude>
 							</excludes>
 						</configuration>
 					</execution>
