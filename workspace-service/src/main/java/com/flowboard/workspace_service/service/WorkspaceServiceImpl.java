@@ -1,6 +1,7 @@
 package com.flowboard.workspace_service.service;
 
 import com.flowboard.workspace_service.config.RabbitMQConfig;
+import com.flowboard.workspace_service.client.AuthUserClient;
 import com.flowboard.workspace_service.dto.*;
 import com.flowboard.workspace_service.entity.Workspace;
 import com.flowboard.workspace_service.entity.WorkspaceInvitation;
@@ -15,6 +16,7 @@ import com.flowboard.workspace_service.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,10 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private final WorkspaceMemberRepository memberRepository;
     private final WorkspaceInvitationRepository invitationRepository;
     private final RabbitTemplate rabbitTemplate;
+    private final AuthUserClient authUserClient;
+
+    @Value("${workspace.invite.base-url:http://localhost:4200}")
+    private String inviteBaseUrl;
 
     @Override
     @Transactional
@@ -93,7 +99,9 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         //             memberRepository.existsByWorkspaceIdAndUserId(workspaceId, resolvedUserId)
 
         String token = UUID.randomUUID().toString();
-        String acceptUrl = "http://localhost:4200/invite/accept?token=" + token;
+        String acceptUrl = inviteBaseUrl + "/invite/accept?token=" + token;
+        Long inviteeUserId = authUserClient.findUserIdByEmail(request.getEmail())
+                .orElse(null);
 
         WorkspaceInvitation invitation = WorkspaceInvitation.builder()
                 .workspaceId(workspaceId)
@@ -115,6 +123,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
                 token,
                 request.getRole().name(),
                 invitedBy,
+                inviteeUserId,
                 acceptUrl);
 
         rabbitTemplate.convertAndSend(

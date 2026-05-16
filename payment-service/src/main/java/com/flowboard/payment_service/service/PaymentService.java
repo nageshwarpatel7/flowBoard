@@ -12,6 +12,7 @@ public interface PaymentService {
     SubscriptionResponse getSubscription(Long userId);
     CheckoutSessionResponse createCheckoutSession(
             CreateCheckoutSessionRequest request, Long userId);
+    SubscriptionResponse confirmCheckoutSession(String sessionId, Long userId);
     void handleWebhook(String payload, String stripeSignature);
     void cancelSubscription(Long userId);
     boolean hasFeature(Long userId, String feature);

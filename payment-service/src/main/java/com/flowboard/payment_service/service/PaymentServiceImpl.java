@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.List;
 
 @Service
@@ -94,6 +96,7 @@ public class PaymentServiceImpl implements PaymentService {
                     // FIX: uses injected successUrl / cancelUrl instead of hardcoded literals
                     .setSuccessUrl(successUrl)
                     .setCancelUrl(cancelUrl)
+                    .setClientReferenceId(String.valueOf(userId))
                     .addLineItem(SessionCreateParams.LineItem.builder()
                             .setPrice(priceId)
                             .setQuantity(1L)
@@ -120,6 +123,59 @@ public class PaymentServiceImpl implements PaymentService {
                     "Payment gateway error: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    @Transactional
+    public SubscriptionResponse confirmCheckoutSession(String sessionId, Long userId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            throw new CustomException("Stripe checkout session ID is required", HttpStatus.BAD_REQUEST);
+        }
+
+        try {
+            Session session = Session.retrieve(sessionId);
+            Long sessionUserId = resolveSessionUserId(session);
+
+            if (!userId.equals(sessionUserId)) {
+                throw new CustomException("Checkout session does not belong to this user", HttpStatus.FORBIDDEN);
+            }
+
+            log.info("Confirming checkout session: id={} status={} paymentStatus={} subscription={}",
+                    session.getId(), session.getStatus(), session.getPaymentStatus(), session.getSubscription());
+
+            if (!"complete".equals(session.getStatus()) || session.getSubscription() == null) {
+                throw new CustomException("Checkout session is not complete yet", HttpStatus.CONFLICT);
+            }
+
+            if ("unpaid".equals(session.getPaymentStatus())) {
+                throw new CustomException("Checkout session payment is not complete yet", HttpStatus.CONFLICT);
+            }
+
+            Subscription subscription = activateSubscription(session);
+            return toSubResponse(subscription);
+
+        } catch (CustomException e) {
+            throw e;
+        } catch (StripeException e) {
+            log.error("Stripe checkout confirmation failed: {}", e.getMessage());
+            throw new CustomException(
+                    "Unable to confirm payment with Stripe: " + e.getMessage(),
+                    HttpStatus.BAD_GATEWAY);
+        } catch (RuntimeException e) {
+            log.error("Invalid checkout session confirmation: {}", e.getMessage());
+            throw new CustomException("Invalid checkout session", HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private Long resolveSessionUserId(Session session) {
+        String userId = session.getMetadata() == null ? null : session.getMetadata().get("userId");
+        if (userId == null || userId.isBlank()) {
+            userId = session.getClientReferenceId();
+        }
+        if (userId == null || userId.isBlank()) {
+            throw new CustomException("Checkout session is missing user metadata", HttpStatus.BAD_REQUEST);
+        }
+        return Long.parseLong(userId);
     }
 
     @Override
@@ -215,7 +271,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     // ── Private helpers ────────────────────────────────────────────────────────
 
-    private void activateSubscription(Session session) {
+    private Subscription activateSubscription(Session session) {
         Long userId = Long.parseLong(session.getMetadata().get("userId"));
         Long planId = Long.parseLong(session.getMetadata().get("planId"));
         String cycle = session.getMetadata().getOrDefault("billingCycle", "MONTHLY");
@@ -231,12 +287,33 @@ public class PaymentServiceImpl implements PaymentService {
         sub.setBillingCycle(cycle);
         sub.setStripeCustomerId(session.getCustomer());
         sub.setStripeSubscriptionId(session.getSubscription());
-        sub.setCurrentPeriodStart(now);
-        sub.setCurrentPeriodEnd(
-                "YEARLY".equals(cycle) ? now.plusYears(1) : now.plusMonths(1));
+        applyStripePeriod(session.getSubscription(), cycle, sub, now);
 
-        subscriptionRepository.save(sub);
+        Subscription saved = subscriptionRepository.save(sub);
         log.info("Subscription activated: userId={} plan={}", userId, plan.getName());
+        return saved;
+    }
+
+    private void applyStripePeriod(String stripeSubscriptionId, String cycle, Subscription sub, LocalDate fallbackStart) {
+        if (stripeSubscriptionId != null && !stripeSubscriptionId.isBlank()) {
+            try {
+                com.stripe.model.Subscription stripeSub =
+                        com.stripe.model.Subscription.retrieve(stripeSubscriptionId);
+                sub.setCurrentPeriodStart(toLocalDate(stripeSub.getCurrentPeriodStart()));
+                sub.setCurrentPeriodEnd(toLocalDate(stripeSub.getCurrentPeriodEnd()));
+                return;
+            } catch (StripeException e) {
+                log.warn("Could not read Stripe subscription period: {}", e.getMessage());
+            }
+        }
+
+        sub.setCurrentPeriodStart(fallbackStart);
+        sub.setCurrentPeriodEnd(
+                "YEARLY".equals(cycle) ? fallbackStart.plusYears(1) : fallbackStart.plusMonths(1));
+    }
+
+    private LocalDate toLocalDate(Long epochSeconds) {
+        return Instant.ofEpochSecond(epochSeconds).atZone(ZoneOffset.UTC).toLocalDate();
     }
 
     private void renewSubscription(Invoice invoice) {

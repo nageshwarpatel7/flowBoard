@@ -46,6 +46,14 @@ public class PaymentController {
                 .body(paymentService.createCheckoutSession(request, resolve(userId)));
     }
 
+    @PostMapping("/checkout/confirm")
+    public ResponseEntity<SubscriptionResponse> confirmCheckout(
+            @RequestBody ConfirmCheckoutSessionRequest request,
+            @RequestHeader(value = "X-User-Id", required = false) Long userId) {
+        return ResponseEntity.ok(
+                paymentService.confirmCheckoutSession(request.getSessionId(), resolve(userId)));
+    }
+
     @PostMapping("/cancel")
     public ResponseEntity<String> cancelSubscription(
             @RequestHeader(value = "X-User-Id", required = false) Long userId) {

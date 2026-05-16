@@ -14,7 +14,9 @@ public class UserProfileDto {
     private String username;
     private String email;
     private String avatarUrl;
+    private String bio;
     private ROLE role;
     private boolean isActive;
+    private boolean emailVerified;
     private LocalDateTime createdAt;
 }

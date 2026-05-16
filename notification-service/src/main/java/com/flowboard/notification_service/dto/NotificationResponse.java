@@ -1,5 +1,6 @@
 package com.flowboard.notification_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.flowboard.notification_service.enums.NotificationType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,6 +24,7 @@ public class NotificationResponse {
     private Long relatedId;
     private String relatedType;
     private String deepLinkUrl;
+    @JsonProperty("isRead")
     private boolean isRead;
     private LocalDateTime createdAt;
     private LocalDateTime readAt;

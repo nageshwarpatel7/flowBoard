@@ -16,5 +16,6 @@ public class WorkspaceInviteEvent implements Serializable {
     private String token;
     private String role;
     private Long invitedByUserId;
+    private Long inviteeUserId;
     private String acceptUrl;
 }

@@ -103,6 +103,13 @@ public class AuthController {
         return ResponseEntity.ok(authService.searchUsers(key));
     }
 
+    @GetMapping("/internal/users/by-email")
+    public ResponseEntity<UserProfileDto> getUserByEmailForInternalUse(
+            @RequestParam @Email @NotBlank String email) {
+        User user = authService.getUserByEmail(email);
+        return ResponseEntity.ok(toProfileDto(user));
+    }
+
     @DeleteMapping("/deactivate")
     public ResponseEntity<String> deactivate(@AuthenticationPrincipal User user){
         authService.deactivateAccount(user.getId());
@@ -210,8 +217,10 @@ public class AuthController {
                 user.getUsername(),
                 user.getEmail(),
                 user.getAvatarUrl(),
+                user.getBio(),
                 user.getRole(),
                 user.isActive(),
+                user.isEmailVerified(),
                 user.getCreatedAt()
         );
     }

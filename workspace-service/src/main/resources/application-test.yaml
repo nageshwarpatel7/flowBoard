@@ -30,3 +30,7 @@ workspace:
 
 frontend:
   base-url: http://localhost:4200
+
+auth:
+  service:
+    base-url: http://localhost:8081/api/v1/auth
