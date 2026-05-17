@@ -36,4 +36,4 @@ build/
 
 id_rsa
 *.pem
-*.key
+*.key*.pem
