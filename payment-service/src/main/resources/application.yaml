@@ -6,10 +6,13 @@ spring:
     name: payment-service
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://flowboard-mysql:3306/flowboard_payment}
-    username: ${SPRING_DATASOURCE_USERNAME:root}
-    password: ${SPRING_DATASOURCE_PASSWORD:1234}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+    hikari:
+      maximum-pool-size: 3
+      connection-timeout: 30000
 
   jpa:
     hibernate:
@@ -23,10 +26,10 @@ spring:
 
 
   rabbitmq:
-    host: ${SPRING_RABBITMQ_HOST:flowboard-rabbitmq}
+    host: ${SPRING_RABBITMQ_HOST:rabbitmq}
     port: ${SPRING_RABBITMQ_PORT:5672}
-    username: ${SPRING_RABBITMQ_USERNAME:guest}
-    password: ${SPRING_RABBITMQ_PASSWORD:guest}
+    username: ${SPRING_RABBITMQ_USERNAME:flowboard}
+    password: ${SPRING_RABBITMQ_PASSWORD}
 
 stripe:
   secret-key: ${STRIPE_SECRET_KEY}
@@ -40,8 +43,9 @@ payment:
 
 eureka:
   client:
-    service-url:
-      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://localhost:8761/eureka/}
+    serviceUrl:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka-server:8761/eureka}
+
   instance:
     prefer-ip-address: true
 
