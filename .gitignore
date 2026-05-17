@@ -32,3 +32,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+
+id_rsa
+*.pem
+*.key
