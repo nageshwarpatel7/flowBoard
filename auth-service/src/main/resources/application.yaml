@@ -6,10 +6,13 @@ spring:
     name: auth-service
 
   datasource:
-    url: jdbc:mysql://flowboard-mysql:3306/flowboard_auth
-    username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:1234}
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+    hikari:
+      maximum-pool-size: 3
+      connection-timeout: 30000
 
   jpa:
     hibernate:
@@ -42,10 +45,8 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:flowboard-redis}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:flowboard_redis_secret}
-      timeout: 3000ms
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
 token:
   blacklist:
@@ -60,8 +61,9 @@ otp:
 
 eureka:
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+    serviceUrl:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka-server:8761/eureka}
+
   instance:
     prefer-ip-address: true
 

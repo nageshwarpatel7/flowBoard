@@ -4,10 +4,13 @@ spring:
   application:
     name: list-service
   datasource:
-    url: jdbc:mysql://flowboard-mysql:3306/flowboard_list
-    username: root
-    password: 1234
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+    hikari:
+      maximum-pool-size: 3
+      connection-timeout: 30000
   jpa:
     hibernate:
       ddl-auto: update
@@ -15,8 +18,9 @@ spring:
     open-in-view: false
 eureka:
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+    serviceUrl:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka-server:8761/eureka}
+
   instance:
     prefer-ip-address: true
 

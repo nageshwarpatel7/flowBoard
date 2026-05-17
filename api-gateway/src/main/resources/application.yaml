@@ -7,9 +7,8 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST:flowboard-redis}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:flowboard_redis_secret}
+      host: ${SPRING_DATA_REDIS_HOST:redis}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
   cloud:
     gateway:
@@ -135,8 +134,9 @@ spring:
 
 eureka:
   client:
-    service-url:
-      defaultZone: http://eureka-server:8761/eureka/
+    serviceUrl:
+      defaultZone: ${EUREKA_CLIENT_SERVICEURL_DEFAULTZONE:http://eureka-server:8761/eureka}
+
   instance:
     prefer-ip-address: true
 
