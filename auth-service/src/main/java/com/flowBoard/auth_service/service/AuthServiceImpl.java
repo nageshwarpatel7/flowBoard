@@ -1,0 +1,360 @@
+package com.flowBoard.auth_service.service;
+
+import com.flowBoard.auth_service.dto.*;
+import com.flowBoard.auth_service.entity.ROLE;
+import com.flowBoard.auth_service.entity.User;
+import com.flowBoard.auth_service.exception.CustomException;
+import com.flowBoard.auth_service.repository.UserRepository;
+import com.flowBoard.auth_service.security.JwtUtil;
+import com.flowBoard.auth_service.security.OtpService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Date;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository repository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final OtpService otpService;
+    private final EmailService emailService;
+    private final TokenBlacklistService blacklistService;
+
+    @Override
+    public AuthResponse register(RegisterRequest request) {
+        if (repository.existsByEmail(request.getEmail())) {
+            throw new CustomException("Email already exists", HttpStatus.BAD_REQUEST);
+        }
+        if (repository.existsByUsername(request.getUsername())) {
+            throw new CustomException("Username already taken", HttpStatus.BAD_REQUEST);
+        }
+
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(ROLE.MEMBER)
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        repository.save(user);
+
+        otpService.sendVerificationOtp(request.getEmail());
+
+        return new AuthResponse(
+                "Registration successful. Please check your email for the verification OTP.",
+                null  // no JWT yet — user must verify email first
+        );
+    }
+
+    @Override
+    public AuthResponse login(LoginRequest request) {
+        User user = repository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException("Invalid email", HttpStatus.NOT_FOUND));
+
+        // Check account is active before verifying password
+        if (!user.isActive()) {
+            if (!otpService.hasActiveOtp(user.getEmail())) {
+                otpService.sendReactivationOtp(user.getEmail(), user.getFullName());
+            }
+            throw new CustomException(
+                    "Account is deactivated. A reactivation OTP has been sent to your email.",
+                    HttpStatus.FORBIDDEN);
+        }
+
+        if (!user.isEmailVerified()) {
+            if (!otpService.hasActiveOtp(user.getEmail())) {
+                otpService.sendVerificationOtp(user.getEmail());
+            }
+            throw new CustomException(
+                    "Email not verified. A new OTP has been sent to your email.",
+                    HttpStatus.FORBIDDEN);
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new CustomException("Invalid password", HttpStatus.UNAUTHORIZED);
+        }
+
+        // FIX: persist lastLoginAt so getAdminStats() can report real active-today counts
+        user.setLastLoginAt(LocalDateTime.now());
+        repository.save(user);
+
+        String token = jwtUtil.generateToken(user.getEmail(), user.getId(), user.getRole().name());
+        return new AuthResponse("Login successful", token);
+    }
+
+    @Override
+    public void sendVerificationOtp(String email) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if (user.isEmailVerified()) {
+            if (user.isActive()) {
+                throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
+            }
+            // If verified but inactive, send reactivation OTP instead
+            otpService.sendReactivationOtp(email, user.getFullName());
+            return;
+        }
+        otpService.sendVerificationOtp(email);
+    }
+
+    @Override
+    public void verifyEmail(String email, String otp) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if (user.isEmailVerified() && user.isActive()) {
+            throw new CustomException("Email is already verified", HttpStatus.BAD_REQUEST);
+        }
+
+        otpService.verifyOtp(email, otp);
+
+        if (!user.isEmailVerified()) {
+            user.setEmailVerified(true);
+            log.info("Email verified for userId={}", user.getId());
+        }
+
+        if (!user.isActive()) {
+            user.setActive(true);
+            log.info("Account reactivated via verification flow: userId={}", user.getId());
+            emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), true);
+        }
+
+        repository.save(user);
+    }
+
+    @Override
+    public void sendForgotPasswordOtp(String email) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(
+                        "No account is found for this email", HttpStatus.NOT_FOUND));
+
+        if (!user.isActive()) {
+            log.warn("Forgot password requested for inactive account: {}", email);
+            // Allow OTP even for inactive accounts to facilitate recovery
+        }
+
+        otpService.sendForgotPasswordOtp(email);
+        log.info("Forgot password OTP sent to {}", email);
+    }
+
+    @Override
+    public void sendReactivationOtp(String email) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if (user.isActive()) {
+            throw new CustomException("Account is already active", HttpStatus.BAD_REQUEST);
+        }
+
+        otpService.sendReactivationOtp(email, user.getFullName());
+        log.info("Reactivation OTP sent to {}", email);
+    }
+
+    @Override
+    public void reactivateWithOtp(String email, String otp) {
+        User user = repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        if (user.isActive()) {
+            throw new CustomException("Account is already active", HttpStatus.BAD_REQUEST);
+        }
+
+        otpService.verifyOtp(email, otp);
+
+        user.setActive(true);
+        repository.save(user);
+        log.info("Account reactivated via OTP: userId={}", user.getId());
+        emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), true);
+    }
+
+    @Override
+    public void resetPassword(ResetPasswordRequest request) {
+        User user = repository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+
+        otpService.verifyOtp(request.getEmail(), request.getOtp());
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        repository.save(user);
+        log.info("Password reset successfully for userId={}", user.getId());
+    }
+
+    @Override
+    public String validateToken(String token) {
+        try {
+            String email = jwtUtil.extractEmail(token);
+            return "Valid token for user: " + email;
+        } catch (Exception e) {
+            throw new CustomException("Invalid or expired token", HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @Override
+    public String refreshToken(String token) {
+        if (!jwtUtil.isTokenValid(token)) {
+            throw new CustomException("Token is invalid or expired", HttpStatus.UNAUTHORIZED);
+        }
+        try {
+            String email = jwtUtil.extractEmail(token);
+            User user = repository.findByEmail(email)
+                    .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+            if (!user.isActive()) {
+                throw new CustomException("Account is deactivated", HttpStatus.FORBIDDEN);
+            }
+            return jwtUtil.generateToken(email, user.getId(), user.getRole().name());
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CustomException("Cannot refresh token", HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @Override
+    public User getUserByEmail(String email) {
+        return repository.findByEmail(email)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+    }
+
+    @Override
+    public User getUserById(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new CustomException("User not found", HttpStatus.NOT_FOUND));
+    }
+
+    @Override
+    public void updateProfile(Long userId, UpdateProfileRequest request) {
+        User user = getUserById(userId);
+        user.setFullName(request.getFullname());
+        user.setUsername(request.getUsername());
+        if (request.getAvatarUrl() != null) {
+            user.setAvatarUrl(request.getAvatarUrl());
+        }
+        if (request.getBio() != null) {
+            user.setBio(request.getBio());
+        }
+        repository.save(user);
+    }
+
+    @Override
+    public void changePassword(Long userId, ChangePasswordRequest request) {
+        User user = getUserById(userId);
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new CustomException("Old password is incorrect", HttpStatus.BAD_REQUEST);
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        repository.save(user);
+    }
+
+    @Override
+    public void logout(String token) {
+        try {
+            Date expiry = jwtUtil.extractAllClaims(token).getExpiration();
+            long ttlSeconds = (expiry.getTime() - System.currentTimeMillis()) / 1000;
+            if (ttlSeconds > 0) {
+                blacklistService.blacklist(token, ttlSeconds);
+            }
+        } catch (Exception e) {
+            log.warn("Could not blacklist token during logout: {}", e.getMessage());
+        }
+        log.info("User logged out successfully");
+    }
+
+    @Override
+    public void deactivateAccount(Long id) {
+        User user = getUserById(id);
+        user.setActive(false);
+        repository.save(user);
+        log.info("Account deactivated for userId: {}", id);
+    }
+
+    @Override
+    public List<User> searchUsers(String key) {
+        return repository.searchByNameOrUsername(key);
+    }
+
+    @Override
+    public List<User> getAllUsers() {
+        return repository.findAll();
+    }
+
+    @Override
+    public List<User> getUsersByRole(ROLE role) {
+        return repository.findAllByRole(role);
+    }
+
+    @Override
+    public void suspendUser(Long id) {
+        User user = getUserById(id);
+        if (!user.isActive()) {
+            throw new CustomException("User is already suspended", HttpStatus.BAD_REQUEST);
+        }
+        user.setActive(false);
+        repository.save(user);
+        emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), false);
+        log.info("User suspended by admin: userId={}", id);
+    }
+
+    @Override
+    public void reactivateUser(Long id) {
+        User user = getUserById(id);
+        if (user.isActive()) {
+            throw new CustomException("User is already active", HttpStatus.BAD_REQUEST);
+        }
+        user.setActive(true);
+        repository.save(user);
+        emailService.sendAccountStatusEmail(user.getEmail(), user.getFullName(), true);
+        log.info("User reactivated by admin: userId={}", id);
+    }
+
+    @Override
+    public void updateUserRole(Long id, ROLE role) {
+        User user = getUserById(id);
+        user.setRole(role);
+        repository.save(user);
+        log.info("User role updated by admin: userId={} newRole={}", id, role);
+    }
+
+    @Override
+    public AdminStatsResponse getAdminStats() {
+        long totalUsers = repository.count();
+
+        // FIX: count users who logged in today using the lastLoginAt field that is
+        //      now persisted on every successful login (was always returning totalUsers as dummy).
+        LocalDateTime startOfToday = LocalDate.now().atStartOfDay();
+        long activeToday = repository.countByLastLoginAtAfter(startOfToday);
+
+        // NOTE: totalWorkspaces and totalBoards require Feign calls to workspace-service
+        //       and board-service respectively.  Placeholder values kept here until those
+        //       Feign clients are implemented — see TODO comments below.
+        // TODO: inject WorkspaceFeignClient and call workspaceClient.count()
+        // TODO: inject BoardFeignClient and call boardClient.count()
+        return AdminStatsResponse.builder()
+                .totalUsers(totalUsers)
+                .activeUsersToday(activeToday)
+                .totalWorkspaces(0L)   // TODO: fetch from workspace-service
+                .totalBoards(0L)       // TODO: fetch from board-service
+                .build();
+    }
+
+    @Override
+    public void deleteUser(Long id) {
+        if (!repository.existsById(id)) {
+            throw new CustomException("User not found", HttpStatus.NOT_FOUND);
+        }
+        repository.deleteById(id);
+        log.info("User permanently deleted by admin: userId={}", id);
+    }
+}

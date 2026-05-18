@@ -1,0 +1,36 @@
+# workspace-service test config
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    show-sql: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - org.springframework.boot.autoconfigure.mail.MailSenderAutoConfiguration
+  mail:
+    host: localhost
+    port: 25
+    username: test@example.com
+    password: password
+
+eureka:
+  client:
+    enabled: false
+
+workspace:
+  invite:
+    base-url: http://localhost:4200
+
+frontend:
+  base-url: http://localhost:4200
+
+auth:
+  service:
+    base-url: http://localhost:8081/api/v1/auth

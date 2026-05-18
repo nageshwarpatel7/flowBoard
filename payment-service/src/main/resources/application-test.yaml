@@ -1,0 +1,30 @@
+# payment-service test config
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+
+eureka:
+  client:
+    enabled: false
+
+stripe:
+  secret-key: sk_test_dummy
+  webhook-secret: whsec_test_dummy
+
+payment:
+  success-url: http://localhost:4200/payment/success?session_id={CHECKOUT_SESSION_ID}
+  cancel-url: http://localhost:4200/payment/cancel

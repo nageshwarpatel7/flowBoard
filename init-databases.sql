@@ -1,0 +1,8 @@
+CREATE DATABASE IF NOT EXISTS flowboard_auth;
+CREATE DATABASE IF NOT EXISTS flowboard_workspace;
+CREATE DATABASE IF NOT EXISTS flowboard_board;
+CREATE DATABASE IF NOT EXISTS flowboard_list;
+CREATE DATABASE IF NOT EXISTS flowboard_card;
+CREATE DATABASE IF NOT EXISTS flowboard_notification;
+CREATE DATABASE IF NOT EXISTS flowboard_comment;
+CREATE DATABASE IF NOT EXISTS flowboard_payment;
