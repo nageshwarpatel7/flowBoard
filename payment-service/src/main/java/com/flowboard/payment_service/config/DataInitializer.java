@@ -41,7 +41,7 @@ public class DataInitializer implements CommandLineRunner {
         planRepository.save(Plan.builder()
                 .name("BUSINESS").displayName("Business").description("For enterprises")
                 .priceMonthly(new BigDecimal("29.99")).priceYearly(new BigDecimal("299.00"))
-                .stripePriceIdMonthly("prod_UMxnb56O3fTvQw")
+                .stripePriceIdMonthly("price_1TXe63BJAylAHJyCpAfVoQ9X")
                 .stripePriceIdYearly("price_1TODtdANErF8WTmG8sLj6zxC")
                 .maxWorkspaces(-1).maxBoardsPerWorkspace(-1).maxMembersPerWorkspace(-1)
                 .hasAdvancedAnalytics(true).hasPrioritySupport(true)
