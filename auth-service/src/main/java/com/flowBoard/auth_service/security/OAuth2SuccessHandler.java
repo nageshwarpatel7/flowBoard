@@ -42,7 +42,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         log.info("OAuth2 login success: email={} userId={}", email, user.getId());
 
-        String frontendUrl = "http://localhost:4200/oauth2/callback?token=" + token
+        String frontendUrl = "http://flowboard-frontend-nag.s3-website.ap-south-1.amazonaws.com/oauth2/callback?token=" + token
                 + "&userId=" + user.getId()
                 + "&role=" + user.getRole().name();
 
