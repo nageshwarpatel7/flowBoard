@@ -395,13 +395,22 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     private WorkspaceResponse toResponse(Workspace workspace) {
-        List<WorkspaceResponse.MemberDto> memberDtos = memberRepository
-                .findByWorkspaceId(workspace.getId())
-                .stream()
+        List<WorkspaceMember> members = memberRepository.findByWorkspaceId(workspace.getId());
+        
+        List<Long> userIds = members.stream()
+                .map(WorkspaceMember::getUserId)
+                .distinct()
+                .toList();
+                
+        java.util.Map<Long, com.flowboard.workspace_service.client.AuthUserClient.AuthUserResponse> userMap = 
+                authUserClient.findUsersByIds(userIds);
+
+        List<WorkspaceResponse.MemberDto> memberDtos = members.stream()
                 .map(m -> WorkspaceResponse.MemberDto.builder()
                         .userId(m.getUserId())
                         .role(m.getRole())
                         .joinedAt(m.getJoinedAt())
+                        .user(userMap.get(m.getUserId()))
                         .build())
                 .toList();
 

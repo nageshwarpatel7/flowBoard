@@ -38,6 +38,28 @@ public class AuthUserClient {
         }
     }
 
-    public record AuthUserResponse(Long id, String fullName, String username, String email) {
+    public java.util.Map<Long, AuthUserResponse> findUsersByIds(java.util.List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return java.util.Map.of();
+        }
+        try {
+            AuthUserResponse[] users = restClientBuilder.build()
+                    .post()
+                    .uri(authBaseUrl + "/internal/users/by-ids")
+                    .body(ids)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (request, response) -> {
+                    })
+                    .body(AuthUserResponse[].class);
+
+            if (users == null) return java.util.Map.of();
+            return java.util.Arrays.stream(users).collect(java.util.stream.Collectors.toMap(AuthUserResponse::id, u -> u));
+        } catch (Exception ex) {
+            log.warn("Could not fetch users by ids: {}", ex.getMessage());
+            return java.util.Map.of();
+        }
+    }
+
+    public record AuthUserResponse(Long id, String fullName, String username, String email, String avatarUrl) {
     }
 }

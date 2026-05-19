@@ -235,6 +235,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public List<User> getUsersByIds(List<Long> ids) {
+        return repository.findAllById(ids);
+    }
+
+    @Override
     public void updateProfile(Long userId, UpdateProfileRequest request) {
         User user = getUserById(userId);
         user.setFullName(request.getFullname());

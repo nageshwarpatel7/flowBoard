@@ -110,6 +110,12 @@ public class AuthController {
         return ResponseEntity.ok(toProfileDto(user));
     }
 
+    @PostMapping("/internal/users/by-ids")
+    public ResponseEntity<List<UserProfileDto>> getUsersByIds(@RequestBody List<Long> ids) {
+        List<User> users = authService.getUsersByIds(ids);
+        return ResponseEntity.ok(users.stream().map(this::toProfileDto).toList());
+    }
+
     @DeleteMapping("/deactivate")
     public ResponseEntity<String> deactivate(@AuthenticationPrincipal User user){
         authService.deactivateAccount(user.getId());

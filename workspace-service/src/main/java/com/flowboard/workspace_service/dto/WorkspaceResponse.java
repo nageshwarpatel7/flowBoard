@@ -31,5 +31,6 @@ public class WorkspaceResponse {
         private Long userId;
         private MemberRole role;
         private LocalDateTime joinedAt;
+        private com.flowboard.workspace_service.client.AuthUserClient.AuthUserResponse user;
     }
 }

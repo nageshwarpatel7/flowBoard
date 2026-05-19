@@ -31,6 +31,7 @@ public interface AuthService {
     //Profile
     User getUserByEmail(String email);
     User getUserById(Long id);
+    List<User> getUsersByIds(List<Long> ids);
     void updateProfile(Long userId, UpdateProfileRequest request);
     void changePassword(Long userId, ChangePasswordRequest request);
     void deactivateAccount(Long id);
