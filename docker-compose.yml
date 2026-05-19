@@ -211,6 +211,8 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      PAYMENT_SUCCESS_URL: ${PAYMENT_SUCCESS_URL}
+      PAYMENT_CANCEL_URL: ${PAYMENT_CANCEL_URL}
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
