@@ -21,6 +21,9 @@ public class EmailNotificationService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${notification.frontend-url:http://flowboard-frontend-nag.s3-website.ap-south-1.amazonaws.com}")
+    private String frontendUrl;
+
     @Async
     public void sendNotificationEmail(String toEmail,
                                       String title,
@@ -69,17 +72,22 @@ public class EmailNotificationService {
 
     private String buildEmailBody(String title, String message, String deepLinkUrl){
 
-        String linkHtml = (deepLinkUrl != null && !deepLinkUrl.isBlank())
+        String finalUrl = deepLinkUrl;
+        if (deepLinkUrl != null && !deepLinkUrl.isBlank() && !deepLinkUrl.startsWith("http")) {
+            finalUrl = frontendUrl + (deepLinkUrl.startsWith("/") ? "" : "/") + deepLinkUrl;
+        }
+
+        String linkHtml = (finalUrl != null && !finalUrl.isBlank())
                 ? """
       <div style="margin:24px 0;text-align:center;">
-        <a href="http://localhost:8080%s"
+        <a href="%s"
            style="background:#4f46e5;color:#fff;padding:12px 28px;
                   border-radius:6px;text-decoration:none;
                   font-weight:500;font-size:14px;">
           View in FlowBoard
         </a>
       </div>
-      """.formatted(deepLinkUrl)
+      """.formatted(finalUrl)
                 : "";
 
         return """

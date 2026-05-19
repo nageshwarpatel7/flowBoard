@@ -110,6 +110,7 @@ services:
       SPRING_RABBITMQ_USERNAME: guest
       SPRING_RABBITMQ_PASSWORD: guest
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      WORKSPACE_INVITE_BASE_URL: ${FRONTEND_BASE_URL}
     depends_on:
       mysql: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
@@ -179,6 +180,7 @@ services:
       GMAIL_PASSWORD: ${GMAIL_PASSWORD}
       SPRING_MAIL_PROPERTIES_MAIL_DEBUG: "true"
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      NOTIFICATION_FRONTEND_URL: ${FRONTEND_BASE_URL}
     depends_on:
       mysql: {condition: service_healthy}
       rabbitmq: {condition: service_healthy}
