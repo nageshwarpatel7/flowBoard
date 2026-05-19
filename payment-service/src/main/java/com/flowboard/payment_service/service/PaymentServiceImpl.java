@@ -45,10 +45,10 @@ public class PaymentServiceImpl implements PaymentService {
 
     // FIX: hardcoded localhost URLs replaced with @Value-injected properties.
     //      Defaults to localhost for local dev; override via env vars in production.
-    @Value("${payment.success-url:http://localhost:4200/payment/success?session_id={CHECKOUT_SESSION_ID}}")
+    @Value("${payment.success-url:http://flowboard-frontend-nag.s3-website.ap-south-1.amazonaws.com/payment/success?session_id={CHECKOUT_SESSION_ID}}")
     private String successUrl;
 
-    @Value("${payment.cancel-url:http://localhost:4200/payment/cancel}")
+    @Value("${payment.cancel-url:http://flowboard-frontend-nag.s3-website.ap-south-1.amazonaws.com/payment/cancel}")
     private String cancelUrl;
 
     @PostConstruct
